@@ -56,6 +56,7 @@
         <div>
           <h2>AI 总结</h2>
           <p>支持 OpenAI 兼容的 <code>/chat/completions</code> 接口。配置 API Key 时必须使用 HTTPS。</p>
+          <p>OpenCode Go 基础地址填 <code>https://opencode.ai/inference/go/openai/v1</code>，模型需选择该服务中支持 Chat Completions 的类型，例如 <code>glm-5.3-flash</code>。</p>
         </div>
         <label class="switch-field">
           <input type="checkbox" name="llm_enabled" {% if values.llm_enabled %}checked{% endif %}>

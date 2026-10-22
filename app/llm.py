@@ -1,13 +1,20 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
+import uuid
 from typing import Any
 from urllib.parse import urlsplit
 
 import httpx
 
 from app.config import Settings
+
+logger = logging.getLogger(__name__)
+
+OPENCODE_GO_BASE_URL = "https://opencode.ai/inference/go/openai/v1"
+LEGACY_OPENCODE_GO_PATHS = {"/zen/go/v1"}
 
 SYSTEM_PROMPT = """你是气动声学、计算声学和流体力学方向的研究助理。
 只根据用户提供的论文标题、期刊和摘要进行总结，不得补充摘要中没有的事实。
@@ -23,6 +30,98 @@ SYSTEM_PROMPT = """你是气动声学、计算声学和流体力学方向的研�
   "novelty_score": 0.0
 }
 novelty_score 取 0 到 1。不要因为论文暂时没有引用就给出低分。"""
+
+
+def normalize_llm_base_url(value: str) -> str:
+    """Normalize known OpenCode Go URLs without changing other providers."""
+    base_url = value.strip().rstrip("/")
+    parsed = urlsplit(base_url)
+    if (
+        parsed.scheme == "https"
+        and parsed.hostname == "opencode.ai"
+        and not parsed.username
+        and not parsed.password
+        and not parsed.query
+        and not parsed.fragment
+        and parsed.path.rstrip("/") in LEGACY_OPENCODE_GO_PATHS
+    ):
+        return OPENCODE_GO_BASE_URL
+    return base_url
+
+
+def _chat_completions_endpoint(base_url: str) -> str:
+    if urlsplit(base_url).path.rstrip("/").endswith("/chat/completions"):
+        return base_url
+    return f"{base_url}/chat/completions"
+
+
+def _is_opencode_go_endpoint(base_url: str) -> bool:
+    parsed = urlsplit(base_url)
+    return (
+        parsed.hostname == "opencode.ai"
+        and (
+            parsed.path.startswith("/inference/go/")
+            or parsed.path.startswith("/zen/go/")
+        )
+    )
+
+
+def _safe_error_text(value: Any, secret: str) -> str:
+    text = str(value).strip() if value is not None else ""
+    if secret:
+        text = text.replace(secret, "[REDACTED]")
+    return " ".join(text.split())[:500]
+
+
+def _response_error(response: httpx.Response, secret: str) -> str:
+    details: list[str] = []
+    try:
+        payload = response.json()
+    except ValueError:
+        payload = None
+
+    error: Any = payload.get("error") if isinstance(payload, dict) else None
+    if isinstance(error, dict):
+        for key in ("type", "code", "param", "message"):
+            value = _safe_error_text(error.get(key), secret)
+            if value:
+                details.append(f"{key}={value}")
+    elif error is not None:
+        value = _safe_error_text(error, secret)
+        if value:
+            details.append(f"error={value}")
+    elif isinstance(payload, dict):
+        value = _safe_error_text(
+            payload.get("detail") or payload.get("message"),
+            secret,
+        )
+        if value:
+            details.append(f"message={value}")
+
+    request_id = response.headers.get("x-request-id") or response.headers.get(
+        "request-id"
+    )
+    if request_id:
+        details.append(f"request_id={_safe_error_text(request_id, secret)}")
+    return ", ".join(details) if details else "no structured error details"
+
+
+def _log_llm_failure(
+    response: httpx.Response,
+    *,
+    base_url: str,
+    model: str,
+    attempt: int,
+    secret: str,
+) -> None:
+    logger.warning(
+        "LLM request failed: path=%s model=%s attempt=%d status=%d %s",
+        urlsplit(base_url).path or "/",
+        model,
+        attempt,
+        response.status_code,
+        _response_error(response, secret),
+    )
 
 
 class LLMService:
@@ -41,7 +140,8 @@ class LLMService:
         abstract = (paper.get("abstract") or "").strip()
         if not self.configured or len(abstract) < 120:
             return None
-        parsed_endpoint = urlsplit(self.settings.llm_base_url)
+        base_url = normalize_llm_base_url(self.settings.llm_base_url)
+        parsed_endpoint = urlsplit(base_url)
         if (
             parsed_endpoint.scheme not in {"http", "https"}
             or not parsed_endpoint.hostname
@@ -66,22 +166,85 @@ class LLMService:
             ],
             "response_format": {"type": "json_object"},
         }
-        headers = {"Content-Type": "application/json"}
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "User-Agent": self.settings.user_agent or "ResearchRadar/0.1",
+        }
         if self.settings.llm_api_key:
             headers["Authorization"] = f"Bearer {self.settings.llm_api_key}"
-        endpoint = self.settings.llm_base_url.rstrip("/") + "/chat/completions"
+        if _is_opencode_go_endpoint(base_url):
+            headers["x-opencode-session"] = f"research-radar-{uuid.uuid4().hex}"
+        endpoint = _chat_completions_endpoint(base_url)
 
         async with httpx.AsyncClient(timeout=120, trust_env=True) as client:
             try:
+                attempt = 1
                 response = await client.post(endpoint, headers=headers, json=payload)
                 if response.status_code == 400:
+                    _log_llm_failure(
+                        response,
+                        base_url=base_url,
+                        model=self.settings.llm_model,
+                        attempt=1,
+                        secret=self.settings.llm_api_key,
+                    )
                     payload.pop("response_format", None)
+                    payload.pop("temperature", None)
+                    attempt = 2
                     response = await client.post(endpoint, headers=headers, json=payload)
-                response.raise_for_status()
-                content = response.json()["choices"][0]["message"]["content"]
-                return parse_json_object(content)
-            except Exception:
+                if response.status_code >= 400:
+                    _log_llm_failure(
+                        response,
+                        base_url=base_url,
+                        model=self.settings.llm_model,
+                        attempt=attempt,
+                        secret=self.settings.llm_api_key,
+                    )
+                    return None
+            except httpx.HTTPError as exc:
+                logger.warning(
+                    "LLM request failed before receiving a response: path=%s model=%s error=%s",
+                    urlsplit(base_url).path or "/",
+                    self.settings.llm_model,
+                    type(exc).__name__,
+                )
                 return None
+            except Exception as exc:
+                logger.error(
+                    "LLM request failed unexpectedly: path=%s model=%s error=%s",
+                    urlsplit(base_url).path or "/",
+                    self.settings.llm_model,
+                    type(exc).__name__,
+                )
+                return None
+
+            try:
+                content = response.json()["choices"][0]["message"]["content"]
+            except (KeyError, IndexError, TypeError, ValueError):
+                logger.warning(
+                    "LLM response was not a Chat Completions JSON object: "
+                    "path=%s model=%s content_type=%s",
+                    urlsplit(base_url).path or "/",
+                    self.settings.llm_model,
+                    response.headers.get("content-type", "unknown"),
+                )
+                return None
+            if not isinstance(content, str):
+                logger.warning(
+                    "LLM response content was not text: path=%s model=%s",
+                    urlsplit(base_url).path or "/",
+                    self.settings.llm_model,
+                )
+                return None
+            summary = parse_json_object(content)
+            if summary is None:
+                logger.warning(
+                    "LLM response did not contain valid structured JSON: path=%s model=%s",
+                    urlsplit(base_url).path or "/",
+                    self.settings.llm_model,
+                )
+            return summary
 
 
 def parse_json_object(content: str) -> dict[str, Any] | None:

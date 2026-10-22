@@ -159,6 +159,19 @@ docker compose up -d --force-recreate web
 
 SMTP 必须启用 SSL 或 STARTTLS，且服务器证书必须能被容器信任。LLM API Key 只能发送到 HTTPS 地址；不含密钥的局域网 HTTP 模型服务仍可使用。
 
+### OpenCode 接口配置
+
+本项目调用 OpenAI 兼容的 Chat Completions 接口。使用 OpenCode Go 时填写：
+
+```text
+基础地址：https://opencode.ai/inference/go/openai/v1
+模型：glm-5.3-flash、glm-5.3、kimi-k3、deepseek-v4.1-flash 等
+```
+
+旧地址 `https://opencode.ai/zen/go/v1` 会在运行时自动转换为新地址。模型必须支持该服务的 Chat Completions 接口；OpenCode 把部分 GPT 型号放在 Responses 接口，把部分 Claude、Qwen 型号放在 Messages 接口，这些型号不能直接填入本项目。模型 ID 应填写接口返回的 ID，不要填写网页上带空格和后缀的展示名称。
+
+OpenCode Go 官方定位为编程代理流量，普通论文总结是否符合其使用范围应以该服务条款为准。若主要用于非编程任务，建议使用 OpenCode Console 的按量付费接口或其他兼容 Chat Completions 的模型服务。
+
 ### 7. 防火墙
 
 只允许校园网、VPN 或可信 LAN 网段访问 `8443`。不要把该端口直接映射到公网，也不要在路由器上关闭 TLS 后继续从不可信网络登录。
@@ -335,6 +348,14 @@ git diff --check
 ```
 
 若采集长期没有成功记录，依次检查校园网 DNS、代理、出版社页面结构、OpenAlex 限额、LLM 服务和 `radar-logs`。
+
+LLM 返回 4xx 时，日志会记录经过脱敏的 HTTP 状态、错误类型、错误代码、错误参数和服务端消息，不会记录 API Key、Authorization 请求头或完整提示词。排查时重点查看：
+
+```sh
+docker compose logs --tail=200 worker | grep "LLM request failed"
+```
+
+若错误为 `model_not_found`，检查模型 ID；若提示接口族或路径不支持，说明该模型不走 `/chat/completions`；若为 `401` 或 `403`，检查 API Key 和账户额度；若为连接超时，检查软路由 DNS、代理和 LLM 服务可达性。
 
 ## 使用边界
 

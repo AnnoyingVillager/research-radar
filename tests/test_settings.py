@@ -111,6 +111,36 @@ def test_setup_login_and_save_runtime_settings(tmp_path, monkeypatch) -> None:
     assert "openalex-secret" not in raw_key
 
 
+def test_settings_normalize_legacy_opencode_go_url(tmp_path, monkeypatch) -> None:
+    _, database = make_test_app(tmp_path, monkeypatch)
+
+    with TestClient(main.app, base_url="https://testserver") as client:
+        create_admin(client, main.settings)
+        csrf_token = get_csrf_token(client)
+        saved = client.post(
+            "/settings",
+            data={
+                "csrf_token": csrf_token,
+                "openurl_doi_param": "id=doi:",
+                "llm_enabled": "on",
+                "llm_base_url": "https://opencode.ai/zen/go/v1",
+                "llm_model": "glm-5.3-flash",
+                "summary_limit": "20",
+                "smtp_port": "587",
+                "smtp_starttls": "on",
+            },
+            follow_redirects=False,
+        )
+        assert saved.status_code == 303
+
+        settings_page = client.get("/settings")
+        assert settings_page.status_code == 200
+        assert "https://opencode.ai/inference/go/openai/v1" in settings_page.text
+
+    stored = database.get_app_settings()
+    assert stored["llm_base_url"] == "https://opencode.ai/inference/go/openai/v1"
+
+
 def test_setup_rejects_bad_token_weak_password_and_duplicate_setup(
     tmp_path,
     monkeypatch,

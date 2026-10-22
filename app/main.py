@@ -32,6 +32,7 @@ from app.crypto import (
 )
 from app.db import Database
 from app.links import campus_url, doi_url
+from app.llm import normalize_llm_base_url
 
 SESSION_COOKIE = "radar_session"
 SETUP_PASSWORD_MIN_LENGTH = 12
@@ -185,7 +186,7 @@ def _settings_context(
                 "openurl_base": runtime.openurl_base,
                 "openurl_doi_param": runtime.openurl_doi_param,
                 "llm_enabled": runtime.llm_enabled,
-                "llm_base_url": runtime.llm_base_url,
+                "llm_base_url": normalize_llm_base_url(runtime.llm_base_url),
                 "llm_api_key": "",
                 "llm_model": runtime.llm_model,
                 "summary_limit": runtime.summary_limit,
@@ -421,7 +422,9 @@ async def save_settings(request: Request):
         "openurl_base": str(form.get("openurl_base", "")).strip(),
         "openurl_doi_param": str(form.get("openurl_doi_param", "id=doi:")).strip(),
         "llm_enabled": _form_bool(form, "llm_enabled"),
-        "llm_base_url": str(form.get("llm_base_url", "")).strip(),
+        "llm_base_url": normalize_llm_base_url(
+            str(form.get("llm_base_url", "")).strip()
+        ),
         "llm_model": str(form.get("llm_model", "")).strip(),
         "summary_limit": str(form.get("summary_limit", "30")).strip(),
         "smtp_host": str(form.get("smtp_host", "")).strip(),
