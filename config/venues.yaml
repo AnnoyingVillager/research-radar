@@ -89,7 +89,7 @@ journals:
   - slug: applied-acoustics
     name: Applied Acoustics
     kind: journal
-    tier: 2
+    tier: 1
     publisher: Elsevier
     issns: [0003-682X]
     homepage: https://www.sciencedirect.com/journal/applied-acoustics

@@ -31,3 +31,18 @@ def test_young_paper_is_not_penalized_for_zero_citations() -> None:
     assert citation_momentum(0, 3) == 0.55
     assert age_days("2999-01-01") == 0
 
+
+def test_applied_acoustics_uses_priority_venue_score() -> None:
+    deadline = {
+        "title": "Noise control in ventilation systems",
+        "abstract": "Acoustic measurement and noise-control design.",
+        "cited_by_count": 0,
+        "online_date": "2026-10-20",
+        "is_oa": False,
+    }
+    venue = load_venues().by_slug()["applied-acoustics"]
+
+    score = score_paper(deadline, load_interests(), venue)
+
+    assert score.venue == 1.0
+
