@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}{{ report.title }} · {{ app_name }}{% endblock %}
+{% block content %}
+<main class="container report-page">
+  <a class="back-link" href="/reports">返回报告归档</a>
+  <article class="report-content">
+    {{ report.content_html|safe }}
+  </article>
+</main>
+{% endblock %}
+

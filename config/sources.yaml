@@ -1,0 +1,27 @@
+crossref:
+  enabled: true
+  lookback_days: 14
+  rows_per_journal: 100
+  request_delay_seconds: 1.0
+  max_retries: 2
+
+rss:
+  enabled: true
+  request_delay_seconds: 0.5
+  max_entries_per_feed: 100
+
+openalex:
+  enabled: true
+  request_delay_seconds: 1.0
+  batch_size: 10
+  enrich_limit: 50
+
+conference:
+  enabled: true
+  request_delay_seconds: 1.0
+  max_text_chars: 200000
+
+http:
+  timeout_seconds: 30
+  retry_wait_seconds: 5
+

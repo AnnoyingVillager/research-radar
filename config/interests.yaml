@@ -1,0 +1,86 @@
+profile:
+  title: 气动声学、计算声学与流体力学
+  description: 关注飞行器、叶轮机械和流动噪声中的物理机制、数值方法与实验发现。
+  language: zh-CN
+
+groups:
+  - label: 气动声学
+    weight: 1.0
+    keywords:
+      - aeroacoustics
+      - aero-acoustics
+      - acoustic analogy
+      - computational aeroacoustics
+      - jet noise
+      - airframe noise
+      - fan noise
+      - cavity noise
+      - duct acoustics
+      - trailing-edge noise
+      - acoustic liner
+      - shock noise
+      - sonic boom
+
+  - label: 流体力学
+    weight: 0.95
+    keywords:
+      - turbulence
+      - turbulent
+      - transition
+      - instability
+      - wake
+      - vortex
+      - boundary layer
+      - compressible flow
+      - shock wave
+      - flow control
+      - fluid-structure interaction
+      - large eddy simulation
+      - direct numerical simulation
+
+  - label: 计算方法
+    weight: 0.9
+    keywords:
+      - computational fluid dynamics
+      - high-order method
+      - discontinuous galerkin
+      - finite volume
+      - lattice boltzmann
+      - immersed boundary
+      - adjoint optimization
+      - reduced-order model
+      - spectral method
+      - uncertainty quantification
+
+  - label: 叶轮机械与推进
+    weight: 0.85
+    keywords:
+      - turbomachinery
+      - compressor
+      - turbine
+      - fan stage
+      - rotor-stator
+      - propeller
+      - rotor noise
+      - ducted fan
+      - propulsion
+
+  - label: 实验与测量
+    weight: 0.75
+    keywords:
+      - wind tunnel
+      - microphone array
+      - beamforming
+      - particle image velocimetry
+      - piv
+      - pressure-sensitive paint
+      - acoustic measurement
+      - experimental investigation
+
+negative_keywords:
+  - erratum
+  - correction
+  - retraction
+  - editorial
+  - book review
+

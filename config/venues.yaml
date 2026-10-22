@@ -1,0 +1,178 @@
+journals:
+  - slug: jsv
+    name: Journal of Sound and Vibration
+    kind: journal
+    tier: 1
+    publisher: Elsevier
+    issns: [0022-460X]
+    homepage: https://www.sciencedirect.com/journal/journal-of-sound-and-vibration
+    rss:
+      - https://rss.sciencedirect.com/publication/science/0022460X
+    topics: [气动声学, 结构振动, 声学测量]
+
+  - slug: jasa
+    name: The Journal of the Acoustical Society of America
+    kind: journal
+    tier: 1
+    publisher: Acoustical Society of America
+    issns: [0001-4966]
+    homepage: https://pubs.aip.org/asa/jasa
+    topics: [声学, 气动声学, 水声, 心理声学]
+
+  - slug: jasa-el
+    name: JASA Express Letters
+    kind: journal
+    tier: 1
+    publisher: Acoustical Society of America
+    issns: [2691-1191]
+    homepage: https://pubs.aip.org/asa/jel
+    topics: [声学, 气动声学, 快速通讯]
+
+  - slug: jfm
+    name: Journal of Fluid Mechanics
+    kind: journal
+    tier: 1
+    publisher: Cambridge University Press
+    issns: [0022-1120]
+    homepage: https://www.cambridge.org/core/journals/journal-of-fluid-mechanics
+    topics: [流体力学, 湍流, 稳定性]
+
+  - slug: pof
+    name: Physics of Fluids
+    kind: journal
+    tier: 1
+    publisher: American Institute of Physics
+    issns: [1070-6631]
+    homepage: https://pubs.aip.org/aip/pof
+    topics: [流体力学, 湍流, 多相流]
+
+  - slug: aiaa-j
+    name: AIAA Journal
+    kind: journal
+    tier: 1
+    publisher: American Institute of Aeronautics and Astronautics
+    issns: [0001-1452]
+    homepage: https://aiaa.org/publications/journals/aiaa-journal/
+    topics: [航空航天, 气动声学, 流体力学]
+
+  - slug: computers-fluids
+    name: Computers & Fluids
+    kind: journal
+    tier: 2
+    publisher: Elsevier
+    issns: [0045-7930]
+    homepage: https://www.sciencedirect.com/journal/computers-and-fluids
+    rss:
+      - https://rss.sciencedirect.com/publication/science/00457930
+    topics: [计算方法, CFD, 数值模拟]
+
+  - slug: j-turbomachinery
+    name: Journal of Turbomachinery
+    kind: journal
+    tier: 2
+    publisher: ASME
+    issns: [0889-504X]
+    homepage: https://asmedigitalcollection.asme.org/turbomachinery
+    topics: [叶轮机械, 气动声学, 流体力学]
+
+  - slug: aerospace-science-technology
+    name: Aerospace Science and Technology
+    kind: journal
+    tier: 2
+    publisher: Elsevier
+    issns: [1270-9638]
+    homepage: https://www.sciencedirect.com/journal/aerospace-science-and-technology
+    rss:
+      - https://rss.sciencedirect.com/publication/science/12709638
+    topics: [航空航天, 气动, 推进]
+
+  - slug: applied-acoustics
+    name: Applied Acoustics
+    kind: journal
+    tier: 2
+    publisher: Elsevier
+    issns: [0003-682X]
+    homepage: https://www.sciencedirect.com/journal/applied-acoustics
+    rss:
+      - https://rss.sciencedirect.com/publication/science/0003682X
+    topics: [应用声学, 噪声控制, 声学测量]
+
+conferences:
+  - slug: aiaa-aviation
+    name: AIAA AVIATION Forum
+    kind: conference
+    tier: 1
+    publisher: AIAA
+    homepage: https://aviation.aiaa.org/
+    topics: [气动声学, 航空, 流体力学]
+    pages:
+      - label: 会议主页
+        type: homepage
+        url: https://aviation.aiaa.org/
+      - label: 历届论坛与论文
+        type: proceedings
+        url: https://aviation.aiaa.org/about/past-forums/
+
+  - slug: aiaa-scitech
+    name: AIAA SciTech Forum
+    kind: conference
+    tier: 1
+    publisher: AIAA
+    homepage: https://scitech.aiaa.org/
+    topics: [航空航天, 流体力学, 气动设计]
+    pages:
+      - label: 会议主页
+        type: homepage
+        url: https://scitech.aiaa.org/
+      - label: 历届论坛与论文
+        type: proceedings
+        url: https://scitech.aiaa.org/about/past-forums/
+
+  - slug: inter-noise
+    name: INTER-NOISE
+    kind: conference
+    tier: 2
+    publisher: International Institute of Noise Control Engineering
+    homepage: https://internoise2026.org/
+    topics: [噪声控制, 声学, 气动声学]
+    pages:
+      - label: INTER-NOISE 2026 主页
+        type: homepage
+        url: https://internoise2026.org/
+
+  - slug: icsv
+    name: International Congress on Sound and Vibration
+    kind: conference
+    tier: 2
+    publisher: International Institute of Acoustics and Vibration
+    homepage: https://icsv33.org/
+    topics: [声学, 振动, 气动声学]
+    pages:
+      - label: ICSV33 主页
+        type: homepage
+        url: https://icsv33.org/
+
+  - slug: asme-turbo-expo
+    name: ASME Turbo Expo
+    kind: conference
+    tier: 1
+    publisher: ASME
+    homepage: https://event.asme.org/Turbo-Expo
+    topics: [叶轮机械, 气动, 气动声学]
+    pages:
+      - label: 会议主页
+        type: homepage
+        url: https://event.asme.org/Turbo-Expo
+
+  - slug: aps-dfd
+    name: APS Division of Fluid Dynamics Annual Meeting
+    kind: conference
+    tier: 2
+    publisher: American Physical Society
+    homepage: https://dfd-meeting.aps.org/
+    topics: [流体力学, 湍流, 实验流体]
+    pages:
+      - label: APS DFD 2026 主页
+        type: homepage
+        url: https://dfd-meeting.aps.org/
+

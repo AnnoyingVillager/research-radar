@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}报告归档 · {{ app_name }}{% endblock %}
+{% block content %}
+<main class="container archive-page">
+  <header class="page-heading">
+    <p class="eyebrow">REPORT ARCHIVE</p>
+    <h1>报告归档</h1>
+  </header>
+  {% if reports %}
+  <div class="report-table">
+    {% for report in reports %}
+    <a class="report-row" href="/reports/{{ report.id }}">
+      <span class="report-kind">{{ '日报' if report.kind == 'daily' else '周报' }}</span>
+      <strong>{{ report.title }}</strong>
+      <span>{{ report.report_date }}</span>
+      <span>{{ report.payload.paper_ids|length }} 篇</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <strong>尚未生成报告</strong>
+    <p>执行 <code>uv run python -m app.cli run-daily</code> 开始第一次采集。</p>
+  </div>
+  {% endif %}
+</main>
+{% endblock %}
+

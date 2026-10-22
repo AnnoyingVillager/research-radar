@@ -1,0 +1,83 @@
+<header class="report-head">
+  <p class="eyebrow">RESEARCH RADAR · {{ kind|upper }}</p>
+  <h1>{{ title }}</h1>
+  <p>本期共收录 {{ papers|length }} 篇，重点推荐 {{ top|length }} 篇。</p>
+</header>
+
+{% if warnings %}
+<section class="report-warning">
+  <h2>采集警告</h2>
+  <ul>
+    {% for warning in warnings %}
+    <li>{{ warning }}</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<section class="report-section">
+  <h2>今日最值得关注</h2>
+  {% if top %}
+  <div class="report-paper-list">
+    {% for paper in top %}
+    <article class="report-paper">
+      <div class="report-paper-head">
+        <span class="report-rank">{{ "%02d"|format(loop.index) }}</span>
+        <div>
+          <p class="paper-meta"><span class="venue">{{ paper.venue_name }}</span><span>{{ paper.display_date }}</span><span>{{ paper.final_score|score }}/100</span></p>
+          <h3><a href="/papers/{{ paper.id }}">{{ paper.title_zh or paper.title }}</a></h3>
+          <p class="paper-authors">{{ paper.authors_text }}</p>
+        </div>
+      </div>
+      {% if paper.read_reason %}
+      <p>{{ paper.read_reason }}</p>
+      {% endif %}
+      {% if paper.method %}<p><strong>方法：</strong>{{ paper.method }}</p>{% endif %}
+      {% if paper.key_results %}<p><strong>结果：</strong>{{ paper.key_results }}</p>{% endif %}
+      <div class="report-links">
+        <a href="/papers/{{ paper.id }}">详细信息</a>
+        {% if paper.campus_url %}<a href="{{ paper.campus_url }}" target="_blank" rel="noopener">全文入口</a>{% endif %}
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="muted">当前时间窗口内没有新增论文。</p>
+  {% endif %}
+</section>
+
+{% for label, values in sections.items() %}
+<section class="report-section">
+  <h2>{{ label }}</h2>
+  {% if values %}
+  <ul class="report-links-list">
+    {% for paper in values[:12] %}
+    <li>
+      <a href="/papers/{{ paper.id }}">{{ paper.title_zh or paper.title }}</a>
+      <span>{{ paper.venue_name }} · {{ paper.final_score|score }}/100</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">暂无新增。</p>
+  {% endif %}
+</section>
+{% endfor %}
+
+<section class="report-section">
+  <h2>会议动态</h2>
+  {% if conference_updates %}
+  <div class="conference-report-list">
+    {% for update in conference_updates[:12] %}
+    <article>
+      <p class="paper-meta"><span class="venue">{{ update.venue_name }}</span><span>{{ update.label }}</span></p>
+      <h3><a href="{{ update.url }}" target="_blank" rel="noopener">{{ update.title }}</a></h3>
+      <p>{{ update.excerpt }}</p>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="muted">暂无会议页面变更。</p>
+  {% endif %}
+</section>
+

@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block title %}{{ app_name }} · 近期论文{% endblock %}
+{% block content %}
+<main>
+  <section class="radar-head">
+    <div class="container">
+      <div class="radar-heading">
+        <div>
+          <p class="eyebrow">AEROACOUSTICS · ACOUSTICS · FLUID MECHANICS</p>
+          <h1>气动声学与流体力学科研雷达</h1>
+          <p class="headline-meta">{{ now.strftime('%Y年%m月%d日') }} · 最近 30 天数据</p>
+        </div>
+        {% if latest_report %}
+        <a class="button button-primary" href="/reports/{{ latest_report.id }}">打开最新日报</a>
+        {% endif %}
+      </div>
+      <dl class="metric-strip">
+        <div>
+          <dt>30 天论文</dt>
+          <dd>{{ stats.papers_30d }}</dd>
+        </div>
+        <div>
+          <dt>期刊论文</dt>
+          <dd>{{ stats.journal_30d }}</dd>
+        </div>
+        <div>
+          <dt>开放获取</dt>
+          <dd>{{ stats.oa_30d }}</dd>
+        </div>
+        <div>
+          <dt>AI 总结</dt>
+          <dd>{{ stats.summarized_30d }}</dd>
+        </div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="container workspace">
+    <form class="filterbar" method="get" action="/">
+      <label class="search-field">
+        <span>检索</span>
+        <input type="search" name="q" value="{{ filters.q }}" placeholder="标题、摘要或中文标题">
+      </label>
+      <label>
+        <span>期刊</span>
+        <select name="venue">
+          <option value="">全部来源</option>
+          {% for journal in journals %}
+          <option value="{{ journal.slug }}" {% if filters.venue == journal.slug %}selected{% endif %}>{{ journal.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        <span>类型</span>
+        <select name="kind">
+          <option value="">全部类型</option>
+          <option value="journal" {% if filters.kind == 'journal' %}selected{% endif %}>期刊</option>
+          <option value="conference" {% if filters.kind == 'conference' %}selected{% endif %}>会议</option>
+        </select>
+      </label>
+      <label>
+        <span>时间</span>
+        <select name="days">
+          {% for value, label in [(7, '7 天'), (30, '30 天'), (90, '90 天'), (365, '1 年')] %}
+          <option value="{{ value }}" {% if filters.days == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button class="button button-secondary" type="submit">筛选</button>
+    </form>
+
+    <div class="content-grid">
+      <section class="paper-stream">
+        <div class="section-title">
+          <div>
+            <p class="eyebrow">PAPER STREAM</p>
+            <h2>近期论文</h2>
+          </div>
+          <span class="count">{{ papers|length }} 条</span>
+        </div>
+
+        {% if papers %}
+        <div class="paper-list">
+          {% for paper in papers %}
+          <article class="paper-item">
+            <div class="score-rail">
+              <span class="score-value">{{ paper.final_score|score }}</span>
+              <span class="score-label">热度</span>
+            </div>
+            <div class="paper-content">
+              <div class="paper-meta">
+                <span class="venue">{{ paper.venue_name }}</span>
+                <span>{{ paper.display_date }}</span>
+                {% if paper.is_oa %}<span class="tag tag-open">开放获取</span>{% endif %}
+                {% for tag in paper.topic_tags[:3] %}<span class="tag">{{ tag }}</span>{% endfor %}
+              </div>
+              <h3><a href="/papers/{{ paper.id }}">{{ paper.title_zh or paper.title }}</a></h3>
+              {% if paper.title_zh and paper.title_zh != paper.title %}
+              <p class="original-title">{{ paper.title }}</p>
+              {% endif %}
+              <p class="paper-authors">{{ paper.authors_text }}</p>
+              {% if paper.read_reason %}
+              <p class="paper-note">{{ paper.read_reason }}</p>
+              {% elif paper.summary_status == 'metadata_only' %}
+              <p class="paper-note muted">摘要尚未公开，当前仅展示可靠元数据。</p>
+              {% elif paper.abstract_excerpt is defined and paper.abstract_excerpt %}
+              <p class="paper-note muted">{{ paper.abstract_excerpt }}</p>
+              {% endif %}
+              <div class="paper-actions">
+                <a href="/papers/{{ paper.id }}">查看详情</a>
+                {% if paper.doi %}<a href="{{ paper.campus_url }}" target="_blank" rel="noopener">全文入口</a>{% endif %}
+                <span class="paper-feedback">
+                  <form method="post" action="/papers/{{ paper.id }}/feedback">
+                    <input type="hidden" name="vote" value="important">
+                    <button type="submit" class="link-button {% if paper.feedback == 'important' %}active{% endif %}">重要</button>
+                  </form>
+                  <form method="post" action="/papers/{{ paper.id }}/feedback">
+                    <input type="hidden" name="vote" value="ignore">
+                    <button type="submit" class="link-button {% if paper.feedback == 'ignore' %}active{% endif %}">忽略</button>
+                  </form>
+                </span>
+              </div>
+            </div>
+          </article>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+          <strong>当前筛选范围内没有论文</strong>
+          <p>首次运行可执行 <code>uv run python -m app.cli run-daily</code>，或先用演示数据检查页面。</p>
+        </div>
+        {% endif %}
+      </section>
+
+      <aside class="side-column">
+        <section class="side-section">
+          <div class="section-title compact">
+            <h2>运行状态</h2>
+            <a href="/health">详情</a>
+          </div>
+          {% if jobs %}
+          {% set job = jobs[0] %}
+          <div class="job-status status-{{ job.status }}">
+            <span class="status-dot"></span>
+            <div>
+              <strong>{{ {'success': '采集成功', 'partial': '部分成功', 'running': '正在运行', 'failed': '运行失败'}.get(job.status, job.status) }}</strong>
+              <span>{{ job.started_at|datetime_cn }}</span>
+            </div>
+          </div>
+          {% else %}
+          <p class="muted">尚未运行采集任务。</p>
+          {% endif %}
+        </section>
+
+        <section class="side-section">
+          <div class="section-title compact">
+            <h2>会议动态</h2>
+          </div>
+          {% if conference_updates %}
+          <ol class="conference-list">
+            {% for update in conference_updates[:6] %}
+            <li>
+              <a href="{{ update.url }}" target="_blank" rel="noopener">{{ update.venue_name }}</a>
+              <span>{{ update.label }} · {{ update.detected_at|datetime_cn }}</span>
+            </li>
+            {% endfor %}
+          </ol>
+          {% else %}
+          <p class="muted">暂无会议页面变更。</p>
+          {% endif %}
+        </section>
+
+        <section class="side-section">
+          <div class="section-title compact">
+            <h2>最近报告</h2>
+            <a href="/reports">全部</a>
+          </div>
+          {% if latest_report %}
+          <a class="latest-report" href="/reports/{{ latest_report.id }}">
+            <strong>{{ latest_report.title }}</strong>
+            <span>{{ latest_report.created_at|datetime_cn }}</span>
+          </a>
+          {% else %}
+          <p class="muted">尚未生成日报。</p>
+          {% endif %}
+        </section>
+      </aside>
+    </div>
+  </section>
+</main>
+{% endblock %}
+

@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}{{ paper.title }} · {{ app_name }}{% endblock %}
+{% block content %}
+<main class="container detail-page">
+  <a class="back-link" href="/">返回近期论文</a>
+  <article>
+    <header class="detail-head">
+      <div class="paper-meta">
+        <span class="venue">{{ paper.venue_name }}</span>
+        <span>{{ paper.display_date }}</span>
+        {% if paper.is_oa %}<span class="tag tag-open">开放获取</span>{% endif %}
+        {% for tag in paper.topic_tags %}<span class="tag">{{ tag }}</span>{% endfor %}
+      </div>
+      <h1>{{ paper.title_zh or paper.title }}</h1>
+      {% if paper.title_zh and paper.title_zh != paper.title %}
+      <p class="detail-original">{{ paper.title }}</p>
+      {% endif %}
+      <p class="detail-authors">{{ paper.authors_text }}</p>
+      <div class="detail-actions">
+        {% if paper.doi %}
+        <a class="button button-primary" href="{{ paper.campus_url }}" target="_blank" rel="noopener">全文入口</a>
+        <a class="button button-secondary" href="{{ paper.doi_url }}" target="_blank" rel="noopener">DOI</a>
+        {% endif %}
+        <span class="detail-score">{{ paper.final_score|score }}<small>/100 热度</small></span>
+      </div>
+    </header>
+
+    <div class="detail-grid">
+      <div class="detail-main">
+        {% if paper.summary_status == 'complete' %}
+        <section class="reading-section">
+          <h2>问题</h2>
+          <p>{{ paper.problem }}</p>
+        </section>
+        <section class="reading-section">
+          <h2>方法</h2>
+          <p>{{ paper.method }}</p>
+        </section>
+        <section class="reading-section">
+          <h2>关键结果</h2>
+          <p>{{ paper.key_results }}</p>
+        </section>
+        <section class="reading-section">
+          <h2>局限</h2>
+          <p>{{ paper.limitations }}</p>
+        </section>
+        <section class="reading-section">
+          <h2>阅读理由</h2>
+          <p>{{ paper.read_reason }}</p>
+        </section>
+        {% else %}
+        <section class="notice">
+          <strong>当前没有 AI 技术总结</strong>
+          <p>{{ '摘要尚未公开，系统只保留可验证元数据。' if paper.summary_status == 'metadata_only' else '尚未配置或未成功调用语言模型。' }}</p>
+        </section>
+        {% endif %}
+
+        <section class="reading-section">
+          <h2>原始摘要</h2>
+          {% if paper.abstract %}
+          <p class="abstract-text">{{ paper.abstract }}</p>
+          {% else %}
+          <p class="muted">来源未提供摘要。</p>
+          {% endif %}
+        </section>
+      </div>
+
+      <aside class="detail-aside">
+        <section>
+          <h2>论文信息</h2>
+          <dl class="metadata-list">
+            <dt>DOI</dt>
+            <dd>{{ paper.doi or '未提供' }}</dd>
+            <dt>在线日期</dt>
+            <dd>{{ paper.online_date or '未知' }}</dd>
+            <dt>出版日期</dt>
+            <dd>{{ paper.published_date or '未知' }}</dd>
+            <dt>引用数</dt>
+            <dd>{{ paper.cited_by_count }}</dd>
+            <dt>数据源</dt>
+            <dd>{{ paper.summary_model or 'Crossref / RSS / OpenAlex' }}</dd>
+          </dl>
+        </section>
+        <section>
+          <h2>反馈</h2>
+          <div class="feedback-buttons">
+            {% for value, label in [('important', '重要'), ('neutral', '一般'), ('ignore', '忽略')] %}
+            <form method="post" action="/papers/{{ paper.id }}/feedback">
+              <input type="hidden" name="vote" value="{{ value }}">
+              <button class="button {% if paper.feedback == value %}button-primary{% else %}button-secondary{% endif %}" type="submit">{{ label }}</button>
+            </form>
+            {% endfor %}
+          </div>
+        </section>
+        {% if paper.affiliations %}
+        <section>
+          <h2>作者单位</h2>
+          <ul class="plain-list">
+            {% for affiliation in paper.affiliations %}
+            <li>{{ affiliation }}</li>
+            {% endfor %}
+          </ul>
+        </section>
+        {% endif %}
+      </aside>
+    </div>
+  </article>
+</main>
+{% endblock %}
+
