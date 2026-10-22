@@ -1,5 +1,6 @@
 services:
   web:
+    image: "${RADAR_IMAGE:-ghcr.io/annoyingvillager/research-radar:latest}"
     build: .
     restart: unless-stopped
     env_file:
@@ -16,6 +17,7 @@ services:
       - ./papers:/app/papers
 
   worker:
+    image: "${RADAR_IMAGE:-ghcr.io/annoyingvillager/research-radar:latest}"
     build: .
     restart: unless-stopped
     command: ["python", "-m", "app.cli", "scheduler"]

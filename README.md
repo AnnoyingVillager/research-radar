@@ -191,22 +191,71 @@ SMTP_SSL=false
 
 如果希望使用 Linux，可以在 Windows 主机上通过 Hyper-V 创建 Ubuntu Server 24.04 LTS 虚拟机，并桥接到校园网。4 vCPU、8 GB 内存和 100 GB 磁盘可运行不包含本地大模型的服务。
 
-Docker 模式使用 `.env` 中的 `WEB_BIND` 控制主机监听地址，容器内固定为 `APP_HOST=0.0.0.0`：
+### GitHub Actions 镜像构建
+
+推送到 `main` 或推送 `v*` 标签时，GitHub Actions 会先执行测试和 Ruff，再构建 `linux/amd64` 镜像并推送到私有 GitHub Container Registry：
+
+```text
+ghcr.io/annoyingvillager/research-radar:latest
+```
+
+主分支还会生成 `main` 和 `sha-<commit>` 标签，版本标签会生成对应镜像标签。对可复现部署，建议在 `.env` 中固定使用 `sha-<commit>`，而不是长期使用 `latest`。镜像构建记录可在仓库的 Actions 页面查看，推送成功的镜像可在 GitHub Packages 中查看。
+
+### 校园网 Docker 部署
+
+Docker 模式使用 `.env` 中的 `WEB_BIND` 控制主机监听地址，容器内固定为 `APP_HOST=0.0.0.0`。私有镜像需要先使用具有 `read:packages` 权限的 GitHub PAT 登录：
+
+```powershell
+Copy-Item .env.example .env
+# 编辑 .env 和 config/venues.yaml
+$env:GHCR_USER = "AnnoyingVillager"
+$env:GHCR_TOKEN = "github_pat_替换为具有read_packages权限的令牌"
+$env:GHCR_TOKEN | docker login ghcr.io -u $env:GHCR_USER --password-stdin
+.\scripts\docker-deploy.ps1
+```
+
+部署脚本会拉取 `RADAR_IMAGE`、启动 Web 与调度器，并检查 30 秒内的 `/health` 响应。也可以手工执行：
+
+```powershell
+docker compose pull
+docker compose up -d --remove-orphans
+docker compose ps
+Invoke-RestMethod http://127.0.0.1:8000/health
+```
+
+Linux 主机的部署步骤相同，将登录和文件复制命令替换为：
 
 ```bash
 cp .env.example .env
-# 编辑 .env 和 config/venues.yaml
-docker compose build
-docker compose up -d
+echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+docker compose pull
+docker compose up -d --remove-orphans
+curl --fail http://127.0.0.1:8000/health
 ```
 
 只允许校园网访问时，在 `.env` 中设置：
 
 ```dotenv
 WEB_BIND=192.168.1.50
+RADAR_IMAGE=ghcr.io/annoyingvillager/research-radar:sha-示例提交哈希
 ```
 
 注意 `WEB_BIND` 只供 Docker Compose 使用；原生 Windows 启动读取的是 `APP_HOST`。同时使用主机防火墙限制来源地址段，不要把 8000 端口映射到公网。若使用本地大模型，建议把 LLM 服务放在同一局域网内具备 GPU 的机器上。
+
+更新部署时重新拉取并重建容器：
+
+```powershell
+docker compose pull
+docker compose up -d --remove-orphans
+```
+
+如果需要在校园网主机上直接构建而不从 GHCR 拉取：
+
+```powershell
+$env:RADAR_IMAGE = "research-radar:local"
+docker compose build --pull
+docker compose up -d --remove-orphans
+```
 
 Linux 绑定目录若出现权限问题，可执行：
 
@@ -214,7 +263,7 @@ Linux 绑定目录若出现权限问题，可执行：
 sudo chown -R 10001:10001 data logs cache papers
 ```
 
-当前开发机没有安装 Docker，因此本轮只完成了 `docker-compose.yml` 配置检查，没有实际构建镜像。Windows 原生模式已经完成测试和真实采集验证。
+当前开发机没有安装 Docker，因此本机不执行镜像构建；镜像构建与推送由 GitHub Actions 完成。Windows 原生模式已经完成测试和真实采集验证。
 
 ## 数据目录
 
