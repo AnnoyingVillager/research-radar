@@ -21,16 +21,16 @@ COPY app ./app
 COPY config ./config
 COPY docker-entrypoint.sh /usr/local/bin/research-radar-entrypoint
 
-RUN mkdir -p /app/data /app/logs /app/cache /app/papers \
+RUN mkdir -p /app/data /app/logs /app/cache /app/papers /app/secrets \
     && chown -R radar:radar /app \
     && chmod +x /usr/local/bin/research-radar-entrypoint
 
 ENV PATH="/app/.venv/bin:$PATH"
 
-EXPOSE 8000
+EXPOSE 8443
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"
+  CMD python -c "import os, ssl, urllib.request; port=os.getenv('APP_PORT','8443'); secure=os.getenv('TLS_ENABLED','true').lower() in {'1','true','yes','on'}; scheme='https' if secure else 'http'; context=ssl._create_unverified_context() if secure else None; urllib.request.urlopen(f'{scheme}://127.0.0.1:{port}/health', context=context, timeout=3)"
 
 ENTRYPOINT ["research-radar-entrypoint"]
 CMD ["python", "-m", "app.run"]

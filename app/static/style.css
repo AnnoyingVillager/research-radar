@@ -941,6 +941,28 @@ select:focus {
   margin: 10px 0 24px;
 }
 
+.auth-hint {
+  margin: -10px 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.command-block {
+  overflow-x: auto;
+  margin: 0 0 20px;
+  border: 1px solid var(--line);
+  background: #eef2f4;
+  padding: 12px 14px;
+}
+
+.command-block code {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  white-space: nowrap;
+}
+
 .auth-form,
 .settings-form {
   display: grid;

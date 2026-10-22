@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -39,6 +40,16 @@ class LLMService:
     async def summarize(self, paper: dict[str, Any]) -> dict[str, Any] | None:
         abstract = (paper.get("abstract") or "").strip()
         if not self.configured or len(abstract) < 120:
+            return None
+        parsed_endpoint = urlsplit(self.settings.llm_base_url)
+        if (
+            parsed_endpoint.scheme not in {"http", "https"}
+            or not parsed_endpoint.hostname
+            or parsed_endpoint.username
+            or parsed_endpoint.password
+        ):
+            return None
+        if self.settings.llm_api_key and parsed_endpoint.scheme != "https":
             return None
 
         user_prompt = (

@@ -1,6 +1,5 @@
 .env
 .env.*
-!.env.example
 .python/
 .uv-cache/
 .venv/
@@ -12,9 +11,16 @@
 node_modules/
 __pycache__/
 .pytest_cache/
+.pytest-tmp/
 .ruff_cache/
 *.py[cod]
 *.log
+*.pem
+*.key
+*.db
+*.sqlite
+*.sqlite3
+.coverage
 .DS_Store
 Thumbs.db
 .idea/
@@ -28,4 +34,5 @@ cache/*
 !cache/.gitkeep
 papers/*
 !papers/.gitkeep
+secrets/
 

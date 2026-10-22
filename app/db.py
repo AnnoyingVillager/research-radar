@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from app.crypto import SECRET_SETTING_FIELDS, SecretCipher, SecretStorageError
 from app.domain import RawPaper
 
 
@@ -16,15 +17,22 @@ def _now_iso() -> str:
 
 
 class Database:
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, *, settings_key_path: Path):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        if not settings_key_path.exists() and self._has_encrypted_settings():
+            raise SecretStorageError(
+                "数据库包含加密设置，但设置加密密钥文件缺失；"
+                "请恢复对应的 radar-secrets 卷。"
+            )
+        self.secret_cipher = SecretCipher.from_key_file(settings_key_path)
 
     @contextmanager
     def connect(self) -> Iterator[sqlite3.Connection]:
         connection = sqlite3.connect(self.path, timeout=30)
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute("PRAGMA secure_delete = ON")
         try:
             yield connection
             connection.commit()
@@ -38,16 +46,36 @@ class Database:
         schema = Path(__file__).with_name("schema.sql").read_text(encoding="utf-8")
         with self.connect() as connection:
             connection.executescript(schema)
+            migrated = self._encrypt_legacy_settings(connection)
+        if migrated:
+            self._scrub_legacy_plaintext()
 
     def get_app_settings(self) -> dict[str, str]:
         with self.connect() as connection:
             rows = connection.execute("SELECT key, value FROM app_settings").fetchall()
-        return {str(row["key"]): str(row["value"]) for row in rows}
+        values: dict[str, str] = {}
+        for row in rows:
+            key = str(row["key"])
+            value = str(row["value"])
+            values[key] = (
+                self.secret_cipher.decrypt(value)
+                if key in SECRET_SETTING_FIELDS
+                else value
+            )
+        return values
 
     def set_app_settings(self, values: dict[str, str]) -> None:
         if not values:
             return
         now = _now_iso()
+        stored_values = {
+            key: (
+                self.secret_cipher.encrypt(str(value))
+                if key in SECRET_SETTING_FIELDS
+                else str(value)
+            )
+            for key, value in values.items()
+        }
         with self.connect() as connection:
             connection.executemany(
                 """
@@ -56,8 +84,13 @@ class Database:
                     value=excluded.value,
                     updated_at=excluded.updated_at
                 """,
-                [(key, str(value), now) for key, value in values.items()],
+                [(key, value, now) for key, value in stored_values.items()],
             )
+
+    def has_users(self) -> bool:
+        with self.connect() as connection:
+            row = connection.execute("SELECT 1 FROM app_users LIMIT 1").fetchone()
+        return row is not None
 
     def get_user(self, username: str) -> dict[str, Any] | None:
         with self.connect() as connection:
@@ -67,10 +100,10 @@ class Database:
             ).fetchone()
         return dict(row) if row else None
 
-    def ensure_initial_admin(self, username: str, password_hash: str) -> None:
+    def create_initial_admin(self, username: str, password_hash: str) -> bool:
         now = _now_iso()
         with self.connect() as connection:
-            connection.execute(
+            cursor = connection.execute(
                 """
                 INSERT INTO app_users(username, password_hash, created_at, updated_at)
                 SELECT ?, ?, ?, ?
@@ -79,6 +112,8 @@ class Database:
                 """,
                 (username.strip(), password_hash, now, now),
             )
+            created = cursor.rowcount == 1
+        return created
 
     def update_user_password(self, username: str, password_hash: str) -> bool:
         with self.connect() as connection:
@@ -662,6 +697,47 @@ class Database:
                 (f"-{days} days", limit),
             ).fetchall()
         return [dict(row) for row in rows]
+
+    def _encrypt_legacy_settings(self, connection: sqlite3.Connection) -> bool:
+        placeholders = ",".join("?" for _ in SECRET_SETTING_FIELDS)
+        rows = connection.execute(
+            f"SELECT key, value FROM app_settings WHERE key IN ({placeholders})",
+            SECRET_SETTING_FIELDS,
+        ).fetchall()
+        migrated = False
+        for row in rows:
+            value = str(row["value"])
+            if not value or value.startswith("enc:v1:"):
+                continue
+            connection.execute(
+                "UPDATE app_settings SET value=?, updated_at=? WHERE key=?",
+                (self.secret_cipher.encrypt(value), _now_iso(), str(row["key"])),
+            )
+            migrated = True
+        return migrated
+
+    def _scrub_legacy_plaintext(self) -> None:
+        """Remove plaintext remnants left in SQLite pages and the WAL."""
+        with sqlite3.connect(self.path, timeout=30) as connection:
+            connection.execute("PRAGMA secure_delete = ON")
+            connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            connection.execute("VACUUM")
+            connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+
+    def _has_encrypted_settings(self) -> bool:
+        if not self.path.exists():
+            return False
+        try:
+            with sqlite3.connect(self.path, timeout=5) as connection:
+                placeholders = ",".join("?" for _ in SECRET_SETTING_FIELDS)
+                row = connection.execute(
+                    "SELECT 1 FROM app_settings "
+                    f"WHERE key IN ({placeholders}) AND value LIKE 'enc:v1:%' LIMIT 1",
+                    SECRET_SETTING_FIELDS,
+                ).fetchone()
+        except sqlite3.Error:
+            return False
+        return row is not None
 
 
 def _decode_row(row: sqlite3.Row) -> dict[str, Any]:

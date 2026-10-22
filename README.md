@@ -1,32 +1,47 @@
 # 科研雷达
 
-面向气动声学、计算声学和流体力学方向的本地科研信息聚合工具。系统以期刊和会议为主要入口，自动采集公开元数据、相关性与热度信号，生成中文日报，并在校园网内提供本地 Web 页面。
+面向气动声学、计算声学和流体力学方向的本地科研信息聚合工具。系统优先从核心期刊、出版社 RSS 和重要会议公开页面采集信息，不要求用户直接浏览 arXiv。
 
 ## 主要能力
 
-- 以核心期刊 ISSN、出版社 RSS 和会议公开页面为主要信息源，不要求用户直接浏览 arXiv。
-- 使用 Crossref、ScienceDirect RSS、OpenAlex 补全论文元数据、摘要、引用和开放获取信息。
-- 监测 AIAA、INTER-NOISE、ICSV、ASME、APS 等方向的重要会议页面。
+- 以期刊 ISSN、出版社 RSS 和会议公开页面为主要信息源。
+- 使用 Crossref、OpenAlex 补全论文元数据、摘要、引用和开放获取信息。
+- 监测 AIAA、INTER-NOISE、ICSV、ASME、APS 等方向的期刊和会议动态。
 - 按期刊层级、主题相关性、引用速度、新颖性、开放程度和人工反馈评分。
 - 使用 OpenAI 兼容接口生成中文结构化总结。
 - 生成 Markdown、HTML 日报和周报，可选通过 SMTP 发送邮件。
-- 提供论文检索、详情、报告归档、会议动态和反馈页面。
-- 提供管理员登录和网页设置页面，SMTP、OpenAlex Key、LLM Key 等保存在数据库中。
-- 只保存 DOI、公开元数据和学校 OpenURL 入口，不自动绕过出版社访问控制。
+- 提供论文检索、详情、报告归档、会议动态和管理员设置页面。
 
-## 一键 Docker 部署
+## 安全设计
 
-目标主机需要满足：
+- Web 默认直接启用 HTTPS，并自动生成包含所配主机名和 IP 的自签名证书。
+- 管理员密码使用 PBKDF2-SHA256 加盐哈希保存，不保存可恢复的明文密码。
+- OpenAlex API Key、LLM API Key 和 SMTP 密码使用 Fernet 认证加密后写入 SQLite。
+- 设置页面只显示“已保存”，不会把已保存的密钥回填到 HTML。
+- 登录 Cookie 使用随机密钥进行 HMAC 签名，并设置 `HttpOnly`、`Secure` 和 `SameSite=Lax`。
+- 配置 LLM API Key 时只允许 HTTPS 接口；SMTP 凭据只允许通过 SSL 或 STARTTLS 发送。
+- SMTP TLS 会校验服务器证书；OpenAlex 固定使用 HTTPS。
+- 数据库迁移会加密旧版明文设置，并清理 SQLite WAL 和空闲页中的旧明文残留。
+- 应用默认不加载 `.env`。数据库管理的敏感字段不会被同名环境变量覆盖。
 
-- x86_64 Linux，例如 iStoreOS、OpenWrt、Debian 或 Ubuntu。
-- 已安装 Docker Engine 和 Docker Compose v2。
-- 能访问 GitHub Container Registry 以及 Crossref、出版社、OpenAlex 等外部站点。
+加密设置依赖 `radar-secrets` 卷中的 `settings-encryption.key`。数据库和该密钥必须一起备份，但建议分开保管；只有 `radar-data` 无法解密 API Key 和 SMTP 密码。
 
-Docker 部署不需要 `.env`、源码、Python、单独创建数据目录或执行 `chown`。只需要 `docker-compose.yml`。
+主机管理员权限被攻陷、容器被以 root 权限控制或浏览器终端本身被控制时，任何本地加密方案都无法继续保护已解密到内存中的密钥。请限制 SSH、Docker 和备份目录权限。
 
-### 1. 获取 Compose 文件
+## x86_64 iStoreOS 一键部署
 
-仓库公开后，可直接下载：
+目标环境需要：
+
+- x86_64 iStoreOS 或其他 Linux。
+- Docker Engine。
+- Docker Compose v2。
+- 能访问 `ghcr.io`、Crossref、出版社站点、OpenAlex 和所选 LLM 接口。
+
+不需要 `.env`、源码、Python、手动创建数据目录或执行 `chown`。部署只需要一个 `docker-compose.yml`。
+
+### 1. 下载 Compose 文件
+
+通过 SSH 登录 iStoreOS：
 
 ```sh
 mkdir -p /root/research-radar
@@ -34,145 +49,137 @@ cd /root/research-radar
 curl -fsSLO https://raw.githubusercontent.com/AnnoyingVillager/research-radar/main/docker-compose.yml
 ```
 
-仓库仍为私有时，从仓库复制 `docker-compose.yml` 到该目录。
+如果 GitHub Raw 访问不稳定，也可以在浏览器打开仓库中的 `docker-compose.yml`，将内容保存到该目录。
 
-### 2. 编辑 `docker-compose.yml`
+### 2. 修改 Compose 中的必要参数
 
-至少修改以下三项：
+至少修改以下两项：
 
-```yaml
-ADMIN_USERNAME: "admin"
-ADMIN_PASSWORD: "替换为至少10位的强密码"
-SESSION_SECRET: "替换为一段足够长的随机字符串"
-```
+- `TLS_HOSTNAMES`：加入软路由实际的局域网 IP 或域名。例如软路由是 `192.168.1.50`，就写成 `research-radar.local,192.168.1.50,localhost,127.0.0.1`。
+- `CROSSREF_EMAIL`、`USER_AGENT`、`OPENALEX_MAILTO`：改成真实联系邮箱。
 
-同时建议修改真实联系邮箱：
-
-```yaml
-CROSSREF_EMAIL: "你的邮箱"
-USER_AGENT: "ResearchRadar/0.1 (mailto:你的邮箱)"
-OPENALEX_MAILTO: "你的邮箱"
-```
-
-常用可调参数都在 `x-radar-environment` 中：
+常用设置：
 
 | 参数 | 用途 | 默认值 |
 | --- | --- | --- |
 | `APP_NAME` | 网页标题 | `科研雷达` |
 | `APP_TIMEZONE` | 时区 | `Asia/Shanghai` |
-| `ADMIN_USERNAME` | 首次创建的管理员用户名 | `admin` |
-| `ADMIN_PASSWORD` | 首次创建的管理员密码 | 必须修改 |
-| `SESSION_SECRET` | 登录 Cookie 签名密钥 | 必须修改 |
+| `TLS_ENABLED` | 启用内置 HTTPS | `true` |
+| `TLS_HOSTNAMES` | 证书包含的域名或 IP | 示例私网地址 |
+| `SESSION_MAX_AGE_HOURS` | 登录有效期 | `168` |
+| `SESSION_HTTPS_ONLY` | 登录 Cookie 仅通过 HTTPS | `true` |
 | `CROSSREF_EMAIL` | Crossref 联系邮箱 | 示例邮箱 |
 | `DAILY_RUN_HOUR` / `DAILY_RUN_MINUTE` | 每日采集时间 | `6:50` |
 | `WEEKLY_RUN_DAY` | 周报星期 | `sat` |
 | `HTTP_PROXY` / `HTTPS_PROXY` | 校园网出网代理 | 空 |
 
-端口映射在 `web.ports` 中：
+端口默认为：
 
 ```yaml
 ports:
-  - "${WEB_BIND:-0.0.0.0}:${WEB_PORT:-8000}:8000"
+  - "${WEB_BIND:-0.0.0.0}:${WEB_PORT:-8443}:8443"
 ```
 
-`WEB_BIND` 控制监听地址，`WEB_PORT` 控制主机端口。直接编辑默认值也可以，例如改成 `192.168.1.50:8000:8000`。如果希望只允许本机反向代理访问，可使用 `127.0.0.1:8000:8000`。
+不创建 `.env` 时，默认监听所有网卡的 `8443` 端口。如只需 LAN 访问，可把 `WEB_BIND` 对应默认值改为具体 LAN IP；如需换端口，可直接编辑这一行。
+
+> 不建议在代理 URL 中填写用户名和密码，因为 Compose 环境变量属于明文配置。需要认证代理时，优先使用主机级透明代理或独立的代理服务。
 
 ### 3. 启动
 
 ```sh
 cd /root/research-radar
+docker compose pull
 docker compose up -d
+docker compose ps
 ```
 
-Compose 会自动拉取镜像、创建命名卷、启动 Web 和调度器。检查状态：
+首次启动会创建命名卷，并自动生成：
+
+- 一次性初始化令牌。
+- 登录会话签名密钥。
+- 设置加密密钥。
+- 自签名 TLS 证书和私钥。
+
+检查启动日志：
 
 ```sh
-docker compose ps
-docker compose logs -f web
+docker compose logs --tail=100 web
 ```
 
-浏览器访问 `http://软路由局域网IP:8000`，点击“管理员登录”，使用 Compose 中的管理员账号登录。
+### 4. 创建管理员
 
-### 4. 在网页配置密钥
+读取一次性初始化令牌：
 
-登录后打开“系统设置”，配置：
+```sh
+docker compose exec web cat /app/secrets/setup-token
+```
+
+在浏览器打开：
+
+```text
+https://软路由局域网IP:8443/setup
+```
+
+输入刚读取的令牌、管理员用户名和至少 12 个字符的密码。创建成功后：
+
+- 一次性令牌文件会被删除。
+- 管理员密码以 PBKDF2 哈希保存。
+- 浏览器会自动登录。
+
+初始化令牌等同于首次安装控制权，不要发到聊天群、工单或截图中。若怀疑泄露，应在完成初始化前删除 `radar-secrets` 卷后重新启动。
+
+### 5. 处理自签名证书
+
+默认证书可以立即提供加密连接，但新设备第一次访问时会出现证书警告。长期使用建议把证书导入访问设备的受信任根证书：
+
+```sh
+cd /root/research-radar
+docker compose cp web:/app/secrets/tls-cert.pem ./research-radar-cert.pem
+```
+
+然后将 `research-radar-cert.pem` 导入电脑或手机的受信任证书存储。不要形成“看到证书错误就永久忽略”的习惯，因为这会削弱对主动中间人攻击的防护。
+
+修改 `TLS_HOSTNAMES` 后重启 `web`，应用会重新生成匹配新地址的证书，需要重新导入：
+
+```sh
+docker compose up -d --force-recreate web
+```
+
+### 6. 在网页配置外部服务
+
+登录后打开“系统设置”：
 
 - OpenAlex API Key。
 - 学校 OpenURL 地址和 DOI 参数。
-- OpenAI 兼容接口地址、模型和 API Key。
+- OpenAI 兼容 LLM 地址、模型和 API Key。
 - SMTP 主机、端口、用户名、密码、发件人和收件人。
-- AI 与邮件功能开关。
-- 新管理员密码。
+- 管理员新密码。
 
-设置保存在 `radar-data` 命名卷中的 SQLite 数据库里，下一次采集任务会自动读取，无需重启容器。密钥输入框留空表示保持数据库中的原值；勾选“清除”可删除已保存密钥。
+密钥输入框留空表示保持数据库中的原值；勾选对应“清除”选项可删除密钥。保存后，下一次采集任务会自动读取新配置，不需要重启容器。
 
-> `ADMIN_USERNAME` 和 `ADMIN_PASSWORD` 只用于空数据库的首次初始化。数据库已有用户后，再修改 Compose 中的密码不会覆盖现有密码，请使用“系统设置”页面修改。
+SMTP 必须启用 SSL 或 STARTTLS，且服务器证书必须能被容器信任。LLM API Key 只能发送到 HTTPS 地址；不含密钥的局域网 HTTP 模型服务仍可使用。
 
-## iStoreOS 部署
+### 7. 防火墙
 
-以下流程适用于在 iStoreOS 上安装官方 Docker 和 Docker Compose 的 x86_64 设备。
+只允许校园网、VPN 或可信 LAN 网段访问 `8443`。不要把该端口直接映射到公网，也不要在路由器上关闭 TLS 后继续从不可信网络登录。
 
-1. 在 iStoreOS 的“系统” -> “磁盘管理”中确认 Docker 数据目录位于容量足够的磁盘。
-2. 通过 SSH 登录软路由。
-3. 检查版本：
+## 从公开 GHCR 拉取镜像
 
-```sh
-docker --version
-docker compose version
-docker version --format '{{.Server.Arch}}'
+仓库公开后，Actions 会自动构建并推送：
+
+```text
+ghcr.io/annoyingvillager/research-radar:latest
 ```
 
-最后一条命令应输出 `amd64` 或 `x86_64`。
+如果匿名拉取提示 `denied`，请在 GitHub 的 `Packages` 中找到 `research-radar`，进入 `Package settings`，将包可见性设为 `Public`。代码仓公开不会自动保证关联容器包也公开。
 
-4. 创建部署目录并放入 `docker-compose.yml`：
-
-```sh
-mkdir -p /root/research-radar
-cd /root/research-radar
-vi docker-compose.yml
-```
-
-5. 修改管理员密码、会话密钥、联系邮箱、端口和代理后启动：
+确认镜像可匿名拉取：
 
 ```sh
-docker compose up -d
-docker compose ps
+docker pull ghcr.io/annoyingvillager/research-radar:latest
 ```
 
-6. 在 iStoreOS 防火墙中只对校园网或 LAN 网段开放映射端口。不要将 8000 端口直接映射到公网。
-7. 浏览器访问 `http://软路由IP:8000`，登录后完成网页配置。
-
-### 当前私有仓库的 GHCR 登录
-
-仓库和 GHCR 包尚未公开时，软路由无法匿名拉取镜像。需要在 GitHub 创建仅含 `read:packages` 权限的经典 Token，然后执行一次：
-
-```sh
-echo "你的GitHub_Token" | docker login ghcr.io -u AnnoyingVillager --password-stdin
-```
-
-登录凭证通常保存在 `/root/.docker/config.json`。之后执行 `docker compose up -d` 即可。
-
-代码仓公开后，请把 `research-radar` Package 的可见性也改为 Public。之后匿名拉取可用，不需要 `docker login`，Compose 文件本身也不需要保存 GitHub Token。
-
-## Docker 数据与更新
-
-Compose 使用四个命名卷：
-
-| 卷名 | 内容 |
-| --- | --- |
-| `radar-data` | SQLite 数据库和报告文件 |
-| `radar-logs` | 运行日志 |
-| `radar-cache` | 临时缓存 |
-| `radar-papers` | 用户保存的全文文件 |
-
-实际卷名前缀通常来自部署目录，可通过以下命令查看：
-
-```sh
-docker volume ls
-docker compose ps
-```
-
-更新部署：
+## 更新
 
 ```sh
 cd /root/research-radar
@@ -180,64 +187,82 @@ docker compose pull
 docker compose up -d --remove-orphans
 ```
 
-删除容器但保留数据库和配置：
+`latest` 适合持续获取更新。需要可回滚的生产部署时，可将 Compose 中的镜像固定为 Actions 生成的 `sha-<commit>` 标签。
+
+## 数据、备份与恢复
+
+Compose 使用五个命名卷：
+
+| 卷名 | 内容 |
+| --- | --- |
+| `radar-data` | SQLite 数据库和报告文件 |
+| `radar-secrets` | 加密密钥、会话密钥、TLS 私钥和首次初始化令牌 |
+| `radar-logs` | 运行日志 |
+| `radar-cache` | 临时缓存 |
+| `radar-papers` | 用户保存的全文文件 |
+
+实际卷名通常带 Compose 项目名前缀，可查看：
+
+```sh
+docker volume ls
+docker compose config --volumes
+```
+
+备份 `radar-data` 时必须同时备份 `radar-secrets`。建议：
+
+1. 将两份备份加密。
+2. 分开存放在不同位置。
+3. 限制备份文件为当前管理员可读。
+4. 定期验证恢复流程。
+
+只恢复数据库而丢失 `radar-secrets` 会导致 API Key、SMTP 密码无法解密，网页设置会明确报错，不会用新密钥覆盖旧密文。
+
+停止容器但保留数据：
 
 ```sh
 docker compose down
 ```
 
-不要使用 `docker compose down -v`，除非确认要连同数据库、报告和网页保存的密钥一起删除。
-
-数据库包含 SMTP 密码和 API Key。备份和复制命名卷时应按敏感数据保护；普通页面密码使用 PBKDF2 哈希存储，登录 Cookie 使用 `SESSION_SECRET` 做 HMAC 签名。
-
-## 镜像构建与 GitHub Actions
-
-仓库推送到 `main` 或推送 `v*` 标签时，GitHub Actions 会：
-
-1. 安装锁定依赖。
-2. 执行 Pytest 和 Ruff。
-3. 构建 `linux/amd64` 镜像。
-4. 推送至 GitHub Container Registry。
-
-镜像地址：
-
-```text
-ghcr.io/annoyingvillager/research-radar:latest
-```
-
-主分支同时生成 `main` 和 `sha-<commit>` 标签，版本标签生成对应版本镜像。生产部署可在 Compose 中固定 `sha-<commit>`，需要自动更新时使用 `latest`。
-
-工作流通过仓库内置的 `GITHUB_TOKEN` 推送，不需要保存 Docker 用户名或 PAT。代码仓公开后，在 GitHub 的 `Packages` -> `research-radar` -> `Package settings` 中把包改为 Public。
+不要执行 `docker compose down -v`，除非确认要彻底删除数据库、报告、密钥和 TLS 私钥。
 
 ## 源码开发
 
 项目使用 Python 3.12 和 `uv`。
 
-### Windows
+### Linux
+
+```sh
+uv sync --frozen
+uv run python -m app.cli init-db
+uv run python -m app.run
+```
+
+### Windows PowerShell
 
 ```powershell
 $env:UV_CACHE_DIR=(Join-Path (Get-Location) '.uv-cache')
 $env:UV_PYTHON_INSTALL_DIR=(Join-Path (Get-Location) '.python')
 $env:PYTHONUTF8='1'
-uv sync
-Copy-Item .env.example .env
-uv run python -m app.cli init-db
-uv run python -m app.cli seed-demo
-.\scripts\start-web.ps1
-```
-
-访问 `http://127.0.0.1:8000`。`[示例]` 数据只用于验证页面、评分和报告流程。
-
-### Linux
-
-```sh
-uv sync
-cp .env.example .env
+uv sync --frozen
 uv run python -m app.cli init-db
 uv run python -m app.run
 ```
 
-原生开发模式仍可通过 `.env` 提供初始值。网页 `/settings` 中保存的值优先级高于环境变量。
+源码模式默认访问：
+
+```text
+https://127.0.0.1:8443/setup
+```
+
+原生运行会在项目下的 `secrets/` 中生成密钥和 TLS 文件。该目录已被 Git 忽略，不要打包、上传或提交。
+
+仅供本机调试时，可以显式关闭 TLS，但此时登录密码会以明文经过网络，不得在校园网共享网卡上使用：
+
+```powershell
+$env:TLS_ENABLED='false'
+$env:SESSION_HTTPS_ONLY='false'
+uv run python -m app.run
+```
 
 ### 手动运行任务
 
@@ -249,56 +274,67 @@ uv run python -m app.cli report-weekly
 uv run python -m app.cli scheduler
 ```
 
-Windows 也可以使用：
+网页保存的运行时设置会由采集、总结、报告和邮件模块自动读取。
 
-```powershell
-.\scripts\run-daily.ps1
-.\scripts\start-scheduler.ps1
+## Docker 镜像构建
+
+GitHub Actions 在 `main` 分支、`v*` 标签和手动触发时执行：
+
+1. 安装锁定依赖。
+2. 执行 Pytest 和 Ruff。
+3. 构建 `linux/amd64` 镜像。
+4. 推送 GHCR 镜像。
+
+工作流使用仓库内置的 `GITHUB_TOKEN` 推送，不保存 Docker PAT。
+
+本机构建：
+
+```sh
+docker build -t research-radar:local .
+docker run --rm -p 8443:8443 \
+  -e APP_HOST=0.0.0.0 \
+  -e APP_PORT=8443 \
+  -e TLS_HOSTNAMES=192.168.1.50 \
+  -v research-radar-data:/app/data \
+  -v research-radar-secrets:/app/secrets \
+  research-radar:local
 ```
 
-## 配置优先级
-
-运行配置按以下顺序生效：
-
-1. `app/config.py` 中的默认值。
-2. 环境变量或原生开发的 `.env`。
-3. 网页 `/settings` 保存到 `app_settings` 表的数据库值。
-
-Compose 中的环境变量负责部署级参数和管理员初始化。SMTP、OpenAlex Key、LLM Key 等运行参数应在网页配置。
-
-## 目录结构
+## 项目结构
 
 ```text
-app/                  FastAPI、采集、评分、报告、认证和设置
+app/                  FastAPI、采集、评分、报告、认证和加密
 config/               期刊、会议、兴趣词和采集策略
 data/                 源码模式下的 SQLite 与报告
 logs/                 源码模式下的日志
 cache/                临时缓存
 papers/               用户人工保存的全文文件
+secrets/              本地密钥与证书，禁止提交
 tests/                自动化测试
 Dockerfile            容器镜像定义
-docker-compose.yml    单文件部署配置
+docker-compose.yml    x86_64 单文件部署配置
 ```
 
-Docker 模式下 `config/` 已内置到镜像，数据目录改为命名卷。
-
-## 维护与诊断
+## 诊断
 
 ```sh
 docker compose logs --tail=200 web
 docker compose logs --tail=200 worker
 docker compose exec web python -m app.cli init-db
-curl --fail http://127.0.0.1:8000/health
+curl --insecure --fail https://127.0.0.1:8443/health
 ```
+
+`curl --insecure` 只用于本机健康探测，不应在普通外发 API 客户端中关闭证书校验。
 
 本地开发检查：
 
 ```powershell
 uv run pytest -q
 uv run ruff check .
+git diff --check
 ```
 
-如果采集任务长期没有成功记录，依次检查校园网 DNS、HTTP/HTTPS 代理、出版社页面结构、OpenAlex 限额、LLM 服务和 `radar-logs` 中的日志。
+若采集长期没有成功记录，依次检查校园网 DNS、代理、出版社页面结构、OpenAlex 限额、LLM 服务和 `radar-logs`。
 
 ## 使用边界
 

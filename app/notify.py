@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import smtplib
+import ssl
 from email.message import EmailMessage
 
 from app.config import Settings
@@ -21,6 +22,11 @@ class EmailNotifier:
         return await asyncio.to_thread(self._send_sync, subject, html, text)
 
     def _send_sync(self, subject: str, html: str, text: str) -> tuple[bool, str]:
+        if not (self.settings.smtp_ssl or self.settings.smtp_starttls):
+            return False, "SMTP 未启用 TLS，已拒绝发送凭据或邮件。"
+        if bool(self.settings.smtp_username) != bool(self.settings.smtp_password):
+            return False, "SMTP 用户名和密码必须同时配置。"
+
         message = EmailMessage()
         message["Subject"] = subject
         message["From"] = self.settings.smtp_from or self.settings.smtp_username
@@ -31,12 +37,14 @@ class EmailNotifier:
         recipients = [
             address.strip() for address in self.settings.smtp_to.split(",") if address.strip()
         ]
+        context = ssl.create_default_context()
         try:
             if self.settings.smtp_ssl:
                 server = smtplib.SMTP_SSL(
                     self.settings.smtp_host,
                     self.settings.smtp_port,
                     timeout=30,
+                    context=context,
                 )
             else:
                 server = smtplib.SMTP(
@@ -46,11 +54,11 @@ class EmailNotifier:
                 )
             with server:
                 if self.settings.smtp_starttls and not self.settings.smtp_ssl:
-                    server.starttls()
+                    server.starttls(context=context)
                 if self.settings.smtp_username:
                     server.login(self.settings.smtp_username, self.settings.smtp_password)
                 server.send_message(message, to_addrs=recipients)
             return True, ""
-        except Exception as exc:
-            return False, str(exc)
+        except (OSError, smtplib.SMTPException, ssl.SSLError) as exc:
+            return False, f"SMTP 发送失败：{type(exc).__name__}"
 

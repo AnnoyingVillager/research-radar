@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}初始化管理员 · {{ app_name }}{% endblock %}
+{% block content %}
+<main class="container auth-page">
+  <section class="auth-panel">
+    <p class="eyebrow">FIRST-RUN SETUP</p>
+    <h1>创建管理员</h1>
+    <p class="auth-intro">初始化令牌只保存在加密卷中，创建管理员后将自动删除。</p>
+    <p class="auth-hint">在部署主机执行以下命令读取一次性令牌：</p>
+    <pre class="command-block"><code>docker compose exec web cat /app/secrets/setup-token</code></pre>
+    {% if error %}
+    <div class="form-alert" role="alert">{{ error }}</div>
+    {% endif %}
+    <form class="auth-form" method="post" action="/setup">
+      <label class="field">
+        <span>一次性初始化令牌</span>
+        <input name="setup_token" type="password" autocomplete="off" required autofocus>
+      </label>
+      <label class="field">
+        <span>管理员用户名</span>
+        <input name="username" autocomplete="username" maxlength="64" value="{{ username }}" required>
+      </label>
+      <label class="field">
+        <span>管理员密码</span>
+        <input name="password" type="password" minlength="12" autocomplete="new-password" required>
+      </label>
+      <label class="field">
+        <span>确认密码</span>
+        <input name="confirm_password" type="password" minlength="12" autocomplete="new-password" required>
+      </label>
+      <button class="button button-primary" type="submit">创建并登录</button>
+    </form>
+  </section>
+</main>
+{% endblock %}

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -44,7 +45,9 @@ async def request_with_retry(
             if attempt >= max_retries:
                 break
             await asyncio.sleep(retry_wait_seconds * (attempt + 1))
-    raise RuntimeError(f"request failed for {url}: {last_error}")
+    host = urlsplit(url).hostname or "remote host"
+    error_type = type(last_error).__name__ if last_error else "unknown error"
+    raise RuntimeError(f"request failed for {host} ({error_type})") from None
 
 
 def request_headers(

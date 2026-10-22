@@ -37,7 +37,10 @@ def main() -> None:
             logging.FileHandler(settings.logs_dir / "radar.log", encoding="utf-8"),
         ],
     )
-    database = Database(settings.database_path)
+    database = Database(
+        settings.database_path,
+        settings_key_path=settings.settings_key_path,
+    )
     database.init()
 
     if args.command == "init-db":

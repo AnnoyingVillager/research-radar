@@ -6,7 +6,7 @@
     <div>
       <p class="eyebrow">RUNTIME SETTINGS</p>
       <h1>系统设置</h1>
-      <p class="page-description">配置保存在 SQLite 数据库中，下一次采集任务会自动使用新值。</p>
+      <p class="page-description">API Key 和密码加密后保存，下一次采集任务会自动使用新值。</p>
     </div>
     <span class="session-user">当前用户：{{ current_user }}</span>
   </header>
@@ -55,7 +55,7 @@
       <div class="settings-section-head">
         <div>
           <h2>AI 总结</h2>
-          <p>支持 OpenAI 兼容的 <code>/chat/completions</code> 接口，包括本地 Ollama 或 vLLM。</p>
+          <p>支持 OpenAI 兼容的 <code>/chat/completions</code> 接口。配置 API Key 时必须使用 HTTPS。</p>
         </div>
         <label class="switch-field">
           <input type="checkbox" name="llm_enabled" {% if values.llm_enabled %}checked{% endif %}>
@@ -93,7 +93,7 @@
       <div class="settings-section-head">
         <div>
           <h2>邮件通知</h2>
-          <p>日报生成后自动发送。多个收件人可用英文逗号分隔。</p>
+          <p>日报生成后自动发送。必须启用 SSL 或 STARTTLS。多个收件人可用英文逗号分隔。</p>
         </div>
       </div>
       <div class="form-grid">
@@ -143,17 +143,17 @@
       <div class="settings-section-head">
         <div>
           <h2>管理员密码</h2>
-          <p>留空表示保持当前密码。修改后请使用新密码重新登录。</p>
+          <p>至少 12 个字符。留空表示保持不变；修改后现有会话会失效，需要使用新密码重新登录。</p>
         </div>
       </div>
       <div class="form-grid">
         <label class="field">
           <span>新密码</span>
-          <input type="password" name="new_password" minlength="10" autocomplete="new-password">
+          <input type="password" name="new_password" minlength="12" autocomplete="new-password">
         </label>
         <label class="field">
           <span>确认新密码</span>
-          <input type="password" name="confirm_password" minlength="10" autocomplete="new-password">
+          <input type="password" name="confirm_password" minlength="12" autocomplete="new-password">
         </label>
       </div>
     </section>

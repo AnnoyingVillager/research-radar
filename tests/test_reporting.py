@@ -8,9 +8,16 @@ from app.reporting import ReportService
 
 @pytest.mark.asyncio
 async def test_generate_daily_writes_files(tmp_path) -> None:
-    settings = Settings(data_dir=tmp_path / "data", logs_dir=tmp_path / "logs")
+    settings = Settings(
+        data_dir=tmp_path / "data",
+        logs_dir=tmp_path / "logs",
+        secrets_dir=tmp_path / "secrets",
+    )
     settings.ensure_directories()
-    database = Database(settings.database_path)
+    database = Database(
+        settings.database_path,
+        settings_key_path=settings.settings_key_path,
+    )
     database.init()
     paper = RawPaper(
         source="test",

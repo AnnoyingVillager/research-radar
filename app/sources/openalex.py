@@ -82,7 +82,10 @@ class OpenAlexCollector:
                     self.disabled_for_run = True
                     break
                 except Exception as exc:
-                    errors.append(f"OpenAlex 批次 {start // self.policy.batch_size + 1}: {exc}")
+                    errors.append(
+                        f"OpenAlex 批次 {start // self.policy.batch_size + 1} 请求失败："
+                        f"{type(exc).__name__}"
+                    )
                 await asyncio.sleep(self.policy.request_delay_seconds)
         return enrichments, errors
 

@@ -1,16 +1,16 @@
 x-radar-environment: &radar-environment
   APP_NAME: "科研雷达"
   APP_HOST: "0.0.0.0"
-  APP_PORT: "8000"
+  APP_PORT: "8443"
   APP_TIMEZONE: "Asia/Shanghai"
   TZ: "Asia/Shanghai"
 
-  # 部署前修改这两项。管理员密码仅在首次启动、数据库尚无用户时生效。
-  ADMIN_USERNAME: "admin"
-  ADMIN_PASSWORD: "change-this-admin-password"
-  SESSION_SECRET: "change-this-session-secret-to-a-long-random-string"
+  # 首次启动自动生成一次性初始化令牌、会话密钥、加密密钥和自签名 TLS 证书。
+  # SMTP 密码和 API Key 都在网页登录后配置，不写入此文件。
+  TLS_ENABLED: "true"
+  TLS_HOSTNAMES: "research-radar.local,192.168.1.1,localhost,127.0.0.1"
   SESSION_MAX_AGE_HOURS: "168"
-  SESSION_HTTPS_ONLY: "false"
+  SESSION_HTTPS_ONLY: "true"
 
   # 建议改成真实联系邮箱，便于 Crossref 和 OpenAlex 识别请求来源。
   CROSSREF_EMAIL: "research@example.edu"
@@ -35,12 +35,13 @@ services:
     restart: unless-stopped
     environment: *radar-environment
     ports:
-      - "${WEB_BIND:-0.0.0.0}:${WEB_PORT:-8000}:8000"
+      - "${WEB_BIND:-0.0.0.0}:${WEB_PORT:-8443}:8443"
     volumes:
       - radar-data:/app/data
       - radar-logs:/app/logs
       - radar-cache:/app/cache
       - radar-papers:/app/papers
+      - radar-secrets:/app/secrets
 
   worker:
     image: ghcr.io/annoyingvillager/research-radar:latest
@@ -54,6 +55,7 @@ services:
       - radar-logs:/app/logs
       - radar-cache:/app/cache
       - radar-papers:/app/papers
+      - radar-secrets:/app/secrets
     depends_on:
       web:
         condition: service_healthy
@@ -63,3 +65,4 @@ volumes:
   radar-logs:
   radar-cache:
   radar-papers:
+  radar-secrets:

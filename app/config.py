@@ -9,27 +9,26 @@ import yaml
 from pydantic import BaseModel, Field, HttpUrl, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.crypto import SECRET_SETTING_FIELDS
+
 if TYPE_CHECKING:
     from app.db import Database
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
     )
 
     app_name: str = "科研雷达"
     app_host: str = "127.0.0.1"
-    app_port: int = 8000
+    app_port: int = 8443
     app_timezone: str = "Asia/Shanghai"
-    admin_username: str = "admin"
-    admin_password: str = "change-this-admin-password"
-    session_secret: str = "change-this-session-secret"
+    tls_enabled: bool = True
+    tls_hostnames: str = "research-radar.local,localhost,127.0.0.1"
     session_max_age_hours: int = 168
-    session_https_only: bool = False
+    session_https_only: bool = True
     daily_run_hour: int = 6
     daily_run_minute: int = 50
     weekly_run_day: str = "sat"
@@ -41,25 +40,26 @@ class Settings(BaseSettings):
     logs_dir: Path = Path("logs")
     cache_dir: Path = Path("cache")
     papers_dir: Path = Path("papers")
+    secrets_dir: Path = Path("secrets")
 
     crossref_email: str = "research@example.edu"
     user_agent: str = "ResearchRadar/0.1 (mailto:research@example.edu)"
     openalex_mailto: str = "research@example.edu"
-    openalex_api_key: str = ""
+    openalex_api_key: str = Field(default="", repr=False)
 
     openurl_base: str = ""
     openurl_doi_param: str = "id=doi:"
 
     llm_enabled: bool = False
     llm_base_url: str = ""
-    llm_api_key: str = ""
+    llm_api_key: str = Field(default="", repr=False)
     llm_model: str = ""
     summary_limit: int = 30
 
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_username: str = ""
-    smtp_password: str = ""
+    smtp_password: str = Field(default="", repr=False)
     smtp_from: str = ""
     smtp_to: str = ""
     smtp_starttls: bool = True
@@ -73,6 +73,26 @@ class Settings(BaseSettings):
     def reports_dir(self) -> Path:
         return self.data_dir / "reports"
 
+    @property
+    def settings_key_path(self) -> Path:
+        return self.secrets_dir / "settings-encryption.key"
+
+    @property
+    def session_secret_path(self) -> Path:
+        return self.secrets_dir / "session.key"
+
+    @property
+    def setup_token_path(self) -> Path:
+        return self.secrets_dir / "setup-token"
+
+    @property
+    def tls_cert_path(self) -> Path:
+        return self.secrets_dir / "tls-cert.pem"
+
+    @property
+    def tls_key_path(self) -> Path:
+        return self.secrets_dir / "tls-key.pem"
+
     def ensure_directories(self) -> None:
         for path in (
             self.data_dir,
@@ -80,6 +100,7 @@ class Settings(BaseSettings):
             self.logs_dir,
             self.cache_dir,
             self.papers_dir,
+            self.secrets_dir,
         ):
             path.mkdir(parents=True, exist_ok=True)
 
@@ -87,6 +108,9 @@ class Settings(BaseSettings):
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     settings = Settings()
+    settings = settings.model_copy(
+        update={field: "" for field in SECRET_SETTING_FIELDS}
+    )
     settings.ensure_directories()
     return settings
 
