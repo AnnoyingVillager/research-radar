@@ -109,6 +109,14 @@
               <div class="paper-actions">
                 <a href="/papers/{{ paper.id }}">查看详情</a>
                 {% if paper.doi %}<a href="{{ paper.campus_url }}" target="_blank" rel="noopener">全文入口</a>{% endif %}
+                {% if current_user %}
+                <form class="paper-summary-form" method="post" action="/papers/{{ paper.id }}/summary">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <button type="submit" class="link-button">更新 AI 总结</button>
+                </form>
+                {% else %}
+                <a href="/login?next=/papers/{{ paper.id }}">更新 AI 总结</a>
+                {% endif %}
                 <span class="paper-feedback">
                   <form method="post" action="/papers/{{ paper.id }}/feedback">
                     <input type="hidden" name="vote" value="important">

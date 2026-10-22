@@ -159,11 +159,11 @@ class DailyPipeline:
 
     async def _summarize_recent(self) -> dict[str, int]:
         stats = {"summaries_complete": 0, "summaries_skipped": 0, "summaries_failed": 0}
+        recent = self.database.get_recent_papers(days=14, limit=200)
+        top_n = recent[: self.settings.summary_limit]
         candidates = [
-            paper
-            for paper in self.database.get_recent_papers(days=14, limit=200)
-            if paper.get("summary_status") in {"pending", "failed", "metadata_only"}
-        ][: self.settings.summary_limit]
+            paper for paper in top_n if paper.get("summary_status") != "complete"
+        ]
         for paper in candidates:
             if len((paper.get("abstract") or "").strip()) < 120:
                 self.database.mark_summary_status(int(paper["id"]), "metadata_only")

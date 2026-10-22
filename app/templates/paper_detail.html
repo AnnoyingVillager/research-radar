@@ -25,6 +25,12 @@
       </div>
     </header>
 
+    {% if summary_notice %}
+    <section class="notice {% if summary_notice_success %}notice-success{% endif %}" role="status">
+      <strong>{{ summary_notice }}</strong>
+    </section>
+    {% endif %}
+
     <div class="detail-grid">
       <div class="detail-main">
         {% if paper.summary_status == 'complete' %}
@@ -80,6 +86,17 @@
             <dt>数据源</dt>
             <dd>{{ paper.summary_model or 'Crossref / RSS / OpenAlex' }}</dd>
           </dl>
+        </section>
+        <section>
+          <h2>AI 总结</h2>
+          {% if current_user %}
+          <form method="post" action="/papers/{{ paper.id }}/summary">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button class="button button-secondary" type="submit">更新 AI 总结</button>
+          </form>
+          {% else %}
+          <a class="button button-secondary" href="/login?next=/papers/{{ paper.id }}">登录后更新 AI 总结</a>
+          {% endif %}
         </section>
         <section>
           <h2>反馈</h2>

@@ -455,6 +455,7 @@ select:focus {
   gap: 8px;
 }
 
+.paper-summary-form,
 .paper-feedback form,
 .feedback-buttons form {
   margin: 0;
@@ -686,6 +687,15 @@ select:focus {
 .notice p {
   margin: 4px 0 0;
   color: #60431f;
+}
+
+.notice-success {
+  border-left-color: var(--teal);
+  background: #e8f3f1;
+}
+
+.notice-success strong {
+  color: var(--teal-dark);
 }
 
 .detail-aside {

@@ -32,10 +32,19 @@ from app.crypto import (
 )
 from app.db import Database
 from app.links import campus_url, doi_url
-from app.llm import normalize_llm_base_url
+from app.llm import LLMService, normalize_llm_base_url
 
 SESSION_COOKIE = "radar_session"
 SETUP_PASSWORD_MIN_LENGTH = 12
+SUMMARY_NOTICES = {
+    "updated": ("AI 总结已更新。", True),
+    "not_configured": ("未能生成总结：请先在系统设置中启用并配置 LLM。", False),
+    "abstract_too_short": (
+        "未能生成总结：原始摘要不足 120 个字符，无法可靠提炼。",
+        False,
+    ),
+    "failed": ("未能生成总结：模型调用或响应解析失败，请检查日志后重试。", False),
+}
 
 settings = get_settings()
 settings.ensure_directories()
@@ -144,13 +153,17 @@ def _decorate_paper(paper: dict, runtime: Settings) -> dict:
     return value
 
 
-def _require_user(request: Request) -> tuple[str | None, RedirectResponse | None]:
+def _require_user(
+    request: Request,
+    *,
+    next_path: str | None = None,
+) -> tuple[str | None, RedirectResponse | None]:
     username = _current_user(request)
     if username:
         return username, None
     if not database.has_users():
         return None, RedirectResponse(url="/setup", status_code=303)
-    target = quote(request.url.path, safe="/")
+    target = quote(next_path or request.url.path, safe="/")
     return None, RedirectResponse(url=f"/login?next={target}", status_code=303)
 
 
@@ -298,13 +311,63 @@ async def dashboard(
 
 
 @app.get("/papers/{paper_id}", response_class=HTMLResponse)
-async def paper_detail(request: Request, paper_id: int):
+async def paper_detail(
+    request: Request,
+    paper_id: int,
+    summary: str = Query(default="", max_length=32),
+):
     paper = database.get_paper(paper_id)
     if not paper:
         raise HTTPException(status_code=404, detail="论文不存在")
     context = _base_context(request)
     context["paper"] = _decorate_paper(paper, _runtime_settings())
+    notice, success = SUMMARY_NOTICES.get(summary, ("", False))
+    context["summary_notice"] = notice
+    context["summary_notice_success"] = success
     return templates.TemplateResponse(request, "paper_detail.html", context)
+
+
+@app.post("/papers/{paper_id}/summary")
+async def update_paper_summary(request: Request, paper_id: int):
+    username, redirect = _require_user(request, next_path=f"/papers/{paper_id}")
+    if redirect:
+        return redirect
+    form = await request.form()
+    if not valid_csrf(
+        username or "",
+        _session_secret(),
+        str(form.get("csrf_token", "")),
+    ):
+        raise HTTPException(status_code=403, detail="无效请求")
+
+    paper = database.get_paper(paper_id)
+    if not paper:
+        raise HTTPException(status_code=404, detail="论文不存在")
+    if len((paper.get("abstract") or "").strip()) < 120:
+        return RedirectResponse(
+            url=f"/papers/{paper_id}?summary=abstract_too_short",
+            status_code=303,
+        )
+
+    runtime = _runtime_settings()
+    llm = LLMService(runtime)
+    if not llm.configured:
+        return RedirectResponse(
+            url=f"/papers/{paper_id}?summary=not_configured",
+            status_code=303,
+        )
+
+    summary = await llm.summarize(paper)
+    if not summary:
+        return RedirectResponse(
+            url=f"/papers/{paper_id}?summary=failed",
+            status_code=303,
+        )
+    database.save_summary(paper_id, summary, runtime.llm_model)
+    return RedirectResponse(
+        url=f"/papers/{paper_id}?summary=updated",
+        status_code=303,
+    )
 
 
 @app.post("/papers/{paper_id}/feedback")

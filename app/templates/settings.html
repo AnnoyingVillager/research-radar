@@ -75,6 +75,7 @@
         <label class="field">
           <span>单次最多总结</span>
           <input type="number" name="summary_limit" min="1" max="200" value="{{ values.summary_limit }}" required>
+          <small>每次固定检查热度排序前 N 篇；其中已有总结的论文会跳过，不会顺延到第 N 篇之后。</small>
         </label>
         <label class="field field-wide">
           <span>LLM API Key</span>
