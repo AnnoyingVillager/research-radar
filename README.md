@@ -242,6 +242,10 @@ docker compose down
 
 项目使用 Python 3.12 和 `uv`。
 
+准备让 AI 更换研究方向、增加期刊/会议或扩展新数据源时，先阅读
+[项目结构与 AI 改造指南](docs/AI_MODIFICATION_GUIDE.md)。该文档说明了模块职责、
+完整数据流、配置与代码的边界、数据库升级要求、安全约束和可复用的 AI 提示词。
+
 ### Linux
 
 ```sh
@@ -320,6 +324,7 @@ docker run --rm -p 8443:8443 \
 ```text
 app/                  FastAPI、采集、评分、报告、认证和加密
 config/               期刊、会议、兴趣词和采集策略
+docs/                项目维护、二次开发和 AI 改造说明
 data/                 源码模式下的 SQLite 与报告
 logs/                 源码模式下的日志
 cache/                临时缓存
