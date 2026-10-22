@@ -193,7 +193,7 @@ SMTP_SSL=false
 
 ### GitHub Actions 镜像构建
 
-推送到 `main` 或推送 `v*` 标签时，GitHub Actions 会先执行测试和 Ruff，再构建 `linux/amd64` 镜像并推送到私有 GitHub Container Registry：
+推送到 `main` 或推送 `v*` 标签时，GitHub Actions 会先执行测试和 Ruff，再构建 `linux/amd64` 镜像并推送到 GitHub Container Registry：
 
 ```text
 ghcr.io/annoyingvillager/research-radar:latest
@@ -201,16 +201,15 @@ ghcr.io/annoyingvillager/research-radar:latest
 
 主分支还会生成 `main` 和 `sha-<commit>` 标签，版本标签会生成对应镜像标签。对可复现部署，建议在 `.env` 中固定使用 `sha-<commit>`，而不是长期使用 `latest`。镜像构建记录可在仓库的 Actions 页面查看，推送成功的镜像可在 GitHub Packages 中查看。
 
+工作流使用 `GITHUB_TOKEN` 完成推送，不需要在仓库中保存 Docker 用户名、PAT 或密码。代码仓公开后，在 GitHub 的 `Packages` -> `research-radar` -> `Package settings` -> `Danger Zone` 中将包访问级别改为 `Public`；此后任何能够访问 GitHub 的主机都可以匿名拉取镜像，部署端不需要执行 `docker login`。
+
 ### 校园网 Docker 部署
 
-Docker 模式使用 `.env` 中的 `WEB_BIND` 控制主机监听地址，容器内固定为 `APP_HOST=0.0.0.0`。私有镜像需要先使用具有 `read:packages` 权限的 GitHub PAT 登录：
+Docker 模式使用 `.env` 中的 `WEB_BIND` 控制主机监听地址，容器内固定为 `APP_HOST=0.0.0.0`。代码仓和 GHCR 包公开后，直接部署即可：
 
 ```powershell
 Copy-Item .env.example .env
 # 编辑 .env 和 config/venues.yaml
-$env:GHCR_USER = "AnnoyingVillager"
-$env:GHCR_TOKEN = "github_pat_替换为具有read_packages权限的令牌"
-$env:GHCR_TOKEN | docker login ghcr.io -u $env:GHCR_USER --password-stdin
 .\scripts\docker-deploy.ps1
 ```
 
@@ -223,11 +222,10 @@ docker compose ps
 Invoke-RestMethod http://127.0.0.1:8000/health
 ```
 
-Linux 主机的部署步骤相同，将登录和文件复制命令替换为：
+Linux 主机的部署步骤相同：
 
 ```bash
 cp .env.example .env
-echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
 docker compose pull
 docker compose up -d --remove-orphans
 curl --fail http://127.0.0.1:8000/health
@@ -264,6 +262,8 @@ sudo chown -R 10001:10001 data logs cache papers
 ```
 
 当前开发机没有安装 Docker，因此本机不执行镜像构建；镜像构建与推送由 GitHub Actions 完成。Windows 原生模式已经完成测试和真实采集验证。
+
+当前仓库仍保持私有。完成公开前，匿名拉取会失败；公开仓库后，还需要把 GHCR 中的 `research-radar` 包设为 `Public`，才能按上面的无登录流程部署。
 
 ## 数据目录
 
