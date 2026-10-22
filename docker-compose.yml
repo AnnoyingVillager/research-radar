@@ -1,34 +1,65 @@
+x-radar-environment: &radar-environment
+  APP_NAME: "科研雷达"
+  APP_HOST: "0.0.0.0"
+  APP_PORT: "8000"
+  APP_TIMEZONE: "Asia/Shanghai"
+  TZ: "Asia/Shanghai"
+
+  # 部署前修改这两项。管理员密码仅在首次启动、数据库尚无用户时生效。
+  ADMIN_USERNAME: "admin"
+  ADMIN_PASSWORD: "change-this-admin-password"
+  SESSION_SECRET: "change-this-session-secret-to-a-long-random-string"
+  SESSION_MAX_AGE_HOURS: "168"
+  SESSION_HTTPS_ONLY: "false"
+
+  # 建议改成真实联系邮箱，便于 Crossref 和 OpenAlex 识别请求来源。
+  CROSSREF_EMAIL: "research@example.edu"
+  USER_AGENT: "ResearchRadar/0.1 (mailto:research@example.edu)"
+  OPENALEX_MAILTO: "research@example.edu"
+
+  # 定时任务。默认每天 06:50 采集，每周六 08:00 生成周报。
+  DAILY_RUN_HOUR: "6"
+  DAILY_RUN_MINUTE: "50"
+  WEEKLY_RUN_DAY: "sat"
+  WEEKLY_RUN_HOUR: "8"
+  WEEKLY_RUN_MINUTE: "0"
+
+  # 校园网需要代理访问外网时填写，例如 http://192.168.1.2:7890。
+  HTTP_PROXY: "${HTTP_PROXY:-}"
+  HTTPS_PROXY: "${HTTPS_PROXY:-}"
+  NO_PROXY: "${NO_PROXY:-localhost,127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}"
+
 services:
   web:
-    image: "${RADAR_IMAGE:-ghcr.io/annoyingvillager/research-radar:latest}"
-    build: .
+    image: ghcr.io/annoyingvillager/research-radar:latest
     restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      APP_HOST: 0.0.0.0
+    environment: *radar-environment
     ports:
-      - "${WEB_BIND:-127.0.0.1}:8000:8000"
+      - "${WEB_BIND:-0.0.0.0}:${WEB_PORT:-8000}:8000"
     volumes:
-      - ./config:/app/config:ro
-      - ./data:/app/data
-      - ./logs:/app/logs
-      - ./cache:/app/cache
-      - ./papers:/app/papers
+      - radar-data:/app/data
+      - radar-logs:/app/logs
+      - radar-cache:/app/cache
+      - radar-papers:/app/papers
 
   worker:
-    image: "${RADAR_IMAGE:-ghcr.io/annoyingvillager/research-radar:latest}"
-    build: .
+    image: ghcr.io/annoyingvillager/research-radar:latest
     restart: unless-stopped
     command: ["python", "-m", "app.cli", "scheduler"]
-    env_file:
-      - .env
+    healthcheck:
+      disable: true
+    environment: *radar-environment
     volumes:
-      - ./config:/app/config:ro
-      - ./data:/app/data
-      - ./logs:/app/logs
-      - ./cache:/app/cache
-      - ./papers:/app/papers
+      - radar-data:/app/data
+      - radar-logs:/app/logs
+      - radar-cache:/app/cache
+      - radar-papers:/app/papers
     depends_on:
-      - web
+      web:
+        condition: service_healthy
 
+volumes:
+  radar-data:
+  radar-logs:
+  radar-cache:
+  radar-papers:

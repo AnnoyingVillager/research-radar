@@ -4,7 +4,13 @@ import asyncio
 import logging
 from typing import Any
 
-from app.config import Settings, load_interests, load_sources, load_venues
+from app.config import (
+    Settings,
+    get_runtime_settings,
+    load_interests,
+    load_sources,
+    load_venues,
+)
 from app.db import Database
 from app.llm import LLMService
 from app.reporting import ReportService
@@ -20,12 +26,12 @@ logger = logging.getLogger(__name__)
 class DailyPipeline:
     def __init__(self, database: Database, settings: Settings):
         self.database = database
-        self.settings = settings
-        self.interests = load_interests()
-        self.venues = load_venues()
-        self.sources = load_sources()
+        self.settings = get_runtime_settings(database, settings)
+        self.interests = load_interests(self.settings.config_dir / "interests.yaml")
+        self.venues = load_venues(self.settings.config_dir / "venues.yaml")
+        self.sources = load_sources(self.settings.config_dir / "sources.yaml")
         self.venue_map = self.venues.by_slug()
-        self.llm = LLMService(settings)
+        self.llm = LLMService(self.settings)
 
     async def run(self, *, generate_report: bool = True) -> dict[str, Any]:
         job_id = self.database.start_job("daily")
@@ -177,9 +183,10 @@ class DailyPipeline:
 
 
 async def generate_weekly(database: Database, settings: Settings) -> int:
-    venues = load_venues()
+    runtime_settings = get_runtime_settings(database, settings)
+    venues = load_venues(runtime_settings.config_dir / "venues.yaml")
     database.init()
     for venue in venues.all:
         database.upsert_venue(venue.model_dump(mode="json"))
-    return await ReportService(database, settings, venues).generate_weekly()
+    return await ReportService(database, runtime_settings, venues).generate_weekly()
 

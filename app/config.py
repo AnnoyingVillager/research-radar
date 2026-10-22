@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from functools import lru_cache
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import yaml
 from pydantic import BaseModel, Field, HttpUrl, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+if TYPE_CHECKING:
+    from app.db import Database
 
 
 class Settings(BaseSettings):
@@ -20,6 +25,16 @@ class Settings(BaseSettings):
     app_host: str = "127.0.0.1"
     app_port: int = 8000
     app_timezone: str = "Asia/Shanghai"
+    admin_username: str = "admin"
+    admin_password: str = "change-this-admin-password"
+    session_secret: str = "change-this-session-secret"
+    session_max_age_hours: int = 168
+    session_https_only: bool = False
+    daily_run_hour: int = 6
+    daily_run_minute: int = 50
+    weekly_run_day: str = "sat"
+    weekly_run_hour: int = 8
+    weekly_run_minute: int = 0
 
     config_dir: Path = Path("config")
     data_dir: Path = Path("data")
@@ -74,6 +89,59 @@ def get_settings() -> Settings:
     settings = Settings()
     settings.ensure_directories()
     return settings
+
+
+DATABASE_SETTING_FIELDS = (
+    "openalex_api_key",
+    "openurl_base",
+    "openurl_doi_param",
+    "llm_enabled",
+    "llm_base_url",
+    "llm_api_key",
+    "llm_model",
+    "summary_limit",
+    "smtp_host",
+    "smtp_port",
+    "smtp_username",
+    "smtp_password",
+    "smtp_from",
+    "smtp_to",
+    "smtp_starttls",
+    "smtp_ssl",
+)
+
+
+def apply_database_settings(
+    base: Settings,
+    values: Mapping[str, Any],
+) -> Settings:
+    """Apply validated web-managed settings on top of environment defaults."""
+    updates: dict[str, Any] = {}
+    for field in DATABASE_SETTING_FIELDS:
+        if field not in values:
+            continue
+        raw = values[field]
+        if field in {"llm_enabled", "smtp_starttls", "smtp_ssl"}:
+            updates[field] = _parse_bool(raw)
+        elif field in {"summary_limit", "smtp_port"}:
+            try:
+                updates[field] = int(raw)
+            except (TypeError, ValueError):
+                continue
+        else:
+            updates[field] = str(raw)
+    return base.model_copy(update=updates)
+
+
+def get_runtime_settings(database: Database, base: Settings | None = None) -> Settings:
+    source = base or get_settings()
+    return apply_database_settings(source, database.get_app_settings())
+
+
+def _parse_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
 
 class InterestGroup(BaseModel):

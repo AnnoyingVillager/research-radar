@@ -39,6 +39,56 @@ class Database:
         with self.connect() as connection:
             connection.executescript(schema)
 
+    def get_app_settings(self) -> dict[str, str]:
+        with self.connect() as connection:
+            rows = connection.execute("SELECT key, value FROM app_settings").fetchall()
+        return {str(row["key"]): str(row["value"]) for row in rows}
+
+    def set_app_settings(self, values: dict[str, str]) -> None:
+        if not values:
+            return
+        now = _now_iso()
+        with self.connect() as connection:
+            connection.executemany(
+                """
+                INSERT INTO app_settings(key, value, updated_at) VALUES(?, ?, ?)
+                ON CONFLICT(key) DO UPDATE SET
+                    value=excluded.value,
+                    updated_at=excluded.updated_at
+                """,
+                [(key, str(value), now) for key, value in values.items()],
+            )
+
+    def get_user(self, username: str) -> dict[str, Any] | None:
+        with self.connect() as connection:
+            row = connection.execute(
+                "SELECT * FROM app_users WHERE username=?",
+                (username.strip(),),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def ensure_initial_admin(self, username: str, password_hash: str) -> None:
+        now = _now_iso()
+        with self.connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO app_users(username, password_hash, created_at, updated_at)
+                SELECT ?, ?, ?, ?
+                WHERE NOT EXISTS (SELECT 1 FROM app_users)
+                ON CONFLICT(username) DO NOTHING
+                """,
+                (username.strip(), password_hash, now, now),
+            )
+
+    def update_user_password(self, username: str, password_hash: str) -> bool:
+        with self.connect() as connection:
+            cursor = connection.execute(
+                "UPDATE app_users SET password_hash=?, updated_at=? WHERE username=?",
+                (password_hash, _now_iso(), username.strip()),
+            )
+            updated = cursor.rowcount == 1
+        return updated
+
     def upsert_venue(self, venue: dict[str, Any]) -> None:
         with self.connect() as connection:
             connection.execute(

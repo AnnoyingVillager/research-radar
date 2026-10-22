@@ -18,6 +18,15 @@
         <a href="/">近期论文</a>
         <a href="/reports">报告归档</a>
         <a href="/health">运行状态</a>
+        {% if current_user %}
+        <a href="/settings">系统设置</a>
+        <form class="nav-form" method="post" action="/logout">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button class="nav-button" type="submit">退出</button>
+        </form>
+        {% else %}
+        <a href="/login">管理员登录</a>
+        {% endif %}
       </nav>
     </div>
   </header>

@@ -26,7 +26,11 @@ async def run_scheduler(database: Database, settings: Settings) -> None:
 
     scheduler.add_job(
         daily_job,
-        CronTrigger(hour=6, minute=50, timezone=ZoneInfo(settings.app_timezone)),
+        CronTrigger(
+            hour=settings.daily_run_hour,
+            minute=settings.daily_run_minute,
+            timezone=ZoneInfo(settings.app_timezone),
+        ),
         id="daily-radar",
         replace_existing=True,
         coalesce=True,
@@ -36,9 +40,9 @@ async def run_scheduler(database: Database, settings: Settings) -> None:
     scheduler.add_job(
         weekly_job,
         CronTrigger(
-            day_of_week="sat",
-            hour=8,
-            minute=0,
+            day_of_week=settings.weekly_run_day,
+            hour=settings.weekly_run_hour,
+            minute=settings.weekly_run_minute,
             timezone=ZoneInfo(settings.app_timezone),
         ),
         id="weekly-radar",

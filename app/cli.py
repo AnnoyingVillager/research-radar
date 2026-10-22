@@ -6,7 +6,7 @@ import logging
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from app.config import get_settings, load_interests, load_venues
+from app.config import get_runtime_settings, get_settings, load_interests, load_venues
 from app.db import Database
 from app.domain import RawPaper
 from app.pipeline import DailyPipeline, generate_weekly
@@ -47,7 +47,10 @@ def main() -> None:
         asyncio.run(DailyPipeline(database, settings).run(generate_report=not args.no_report))
     elif args.command == "report-daily":
         venues = load_venues()
-        asyncio.run(ReportService(database, settings, venues).generate_daily(notify=False))
+        runtime_settings = get_runtime_settings(database, settings)
+        asyncio.run(
+            ReportService(database, runtime_settings, venues).generate_daily(notify=False)
+        )
     elif args.command == "report-weekly":
         asyncio.run(generate_weekly(database, settings))
     elif args.command == "seed-demo":

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}管理员登录 · {{ app_name }}{% endblock %}
+{% block content %}
+<main class="container auth-page">
+  <section class="auth-panel">
+    <p class="eyebrow">ADMIN ACCESS</p>
+    <h1>管理员登录</h1>
+    <p class="auth-intro">登录后可配置数据源密钥、AI 接口与邮件通知。</p>
+    {% if error %}
+    <div class="form-alert" role="alert">{{ error }}</div>
+    {% endif %}
+    <form class="auth-form" method="post" action="/login">
+      <input type="hidden" name="next" value="{{ next_url }}">
+      <label class="field">
+        <span>用户名</span>
+        <input name="username" autocomplete="username" value="{{ username|default('') }}" required autofocus>
+      </label>
+      <label class="field">
+        <span>密码</span>
+        <input type="password" name="password" autocomplete="current-password" required>
+      </label>
+      <button class="button button-primary" type="submit">登录</button>
+    </form>
+  </section>
+</main>
+{% endblock %}

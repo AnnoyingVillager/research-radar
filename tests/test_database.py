@@ -1,3 +1,4 @@
+from app.auth import hash_password, verify_password
 from app.db import Database
 from app.domain import RawPaper
 
@@ -40,4 +41,27 @@ def test_feedback_is_persisted(tmp_path) -> None:
     assert database.feedback_score(paper_id) == 1.0
     database.set_feedback(paper_id, "ignore")
     assert database.feedback_score(paper_id) == -1.0
+
+
+def test_runtime_settings_and_admin_are_persisted(tmp_path) -> None:
+    database = Database(tmp_path / "radar.db")
+    database.init()
+    database.set_app_settings(
+        {
+            "smtp_host": "smtp.example.edu.cn",
+            "llm_enabled": "true",
+            "summary_limit": "12",
+        }
+    )
+    encoded = hash_password("a-long-admin-password")
+    database.ensure_initial_admin("admin", encoded)
+    database.ensure_initial_admin("admin", hash_password("must-not-replace"))
+    database.ensure_initial_admin("second-admin", hash_password("must-not-create"))
+
+    assert database.get_app_settings()["smtp_host"] == "smtp.example.edu.cn"
+    user = database.get_user("ADMIN")
+    assert user is not None
+    assert verify_password("a-long-admin-password", user["password_hash"])
+    assert not verify_password("must-not-replace", user["password_hash"])
+    assert database.get_user("second-admin") is None
 

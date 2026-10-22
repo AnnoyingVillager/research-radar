@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}系统设置 · {{ app_name }}{% endblock %}
+{% block content %}
+<main class="container settings-page">
+  <header class="page-heading settings-heading">
+    <div>
+      <p class="eyebrow">RUNTIME SETTINGS</p>
+      <h1>系统设置</h1>
+      <p class="page-description">配置保存在 SQLite 数据库中，下一次采集任务会自动使用新值。</p>
+    </div>
+    <span class="session-user">当前用户：{{ current_user }}</span>
+  </header>
+
+  {% if error %}
+  <div class="form-alert" role="alert">{{ error }}</div>
+  {% endif %}
+  {% if saved %}
+  <div class="form-success" role="status">设置已保存。无需重启容器。</div>
+  {% endif %}
+
+  <form class="settings-form" method="post" action="/settings">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+    <section class="settings-section">
+      <div class="settings-section-head">
+        <div>
+          <h2>数据源与全文入口</h2>
+          <p>OpenAlex Key 可提高摘要和引用数据额度；OpenURL 用于校园订阅全文跳转。</p>
+        </div>
+      </div>
+      <div class="form-grid">
+        <label class="field field-wide">
+          <span>OpenAlex API Key</span>
+          <input type="password" name="openalex_api_key" autocomplete="off"
+                 placeholder="{{ '已保存，留空保持不变' if secret_configured.openalex_api_key else '未配置' }}">
+        </label>
+        {% if secret_configured.openalex_api_key %}
+        <label class="check-field field-wide">
+          <input type="checkbox" name="clear_openalex_api_key">
+          <span>清除已保存的 OpenAlex Key</span>
+        </label>
+        {% endif %}
+        <label class="field">
+          <span>学校 OpenURL 基础地址</span>
+          <input name="openurl_base" value="{{ values.openurl_base }}" placeholder="https://library.example.edu.cn/openurl">
+        </label>
+        <label class="field">
+          <span>DOI 参数名</span>
+          <input name="openurl_doi_param" value="{{ values.openurl_doi_param }}" placeholder="id=doi:">
+        </label>
+      </div>
+    </section>
+
+    <section class="settings-section">
+      <div class="settings-section-head">
+        <div>
+          <h2>AI 总结</h2>
+          <p>支持 OpenAI 兼容的 <code>/chat/completions</code> 接口，包括本地 Ollama 或 vLLM。</p>
+        </div>
+        <label class="switch-field">
+          <input type="checkbox" name="llm_enabled" {% if values.llm_enabled %}checked{% endif %}>
+          <span>启用</span>
+        </label>
+      </div>
+      <div class="form-grid">
+        <label class="field field-wide">
+          <span>接口基础地址</span>
+          <input name="llm_base_url" value="{{ values.llm_base_url }}" placeholder="http://192.168.1.10:11434/v1">
+        </label>
+        <label class="field">
+          <span>模型名称</span>
+          <input name="llm_model" value="{{ values.llm_model }}" placeholder="模型 ID">
+        </label>
+        <label class="field">
+          <span>单次最多总结</span>
+          <input type="number" name="summary_limit" min="1" max="200" value="{{ values.summary_limit }}" required>
+        </label>
+        <label class="field field-wide">
+          <span>LLM API Key</span>
+          <input type="password" name="llm_api_key" autocomplete="off"
+                 placeholder="{{ '已保存，留空保持不变' if secret_configured.llm_api_key else '本地服务可留空' }}">
+        </label>
+        {% if secret_configured.llm_api_key %}
+        <label class="check-field field-wide">
+          <input type="checkbox" name="clear_llm_api_key">
+          <span>清除已保存的 LLM Key</span>
+        </label>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="settings-section">
+      <div class="settings-section-head">
+        <div>
+          <h2>邮件通知</h2>
+          <p>日报生成后自动发送。多个收件人可用英文逗号分隔。</p>
+        </div>
+      </div>
+      <div class="form-grid">
+        <label class="field">
+          <span>SMTP 主机</span>
+          <input name="smtp_host" value="{{ values.smtp_host }}" placeholder="smtp.example.edu.cn">
+        </label>
+        <label class="field">
+          <span>SMTP 端口</span>
+          <input type="number" name="smtp_port" min="1" max="65535" value="{{ values.smtp_port }}" required>
+        </label>
+        <label class="field">
+          <span>用户名</span>
+          <input name="smtp_username" value="{{ values.smtp_username }}" autocomplete="off">
+        </label>
+        <label class="field">
+          <span>密码或授权码</span>
+          <input type="password" name="smtp_password" autocomplete="new-password"
+                 placeholder="{{ '已保存，留空保持不变' if secret_configured.smtp_password else '未配置' }}">
+        </label>
+        {% if secret_configured.smtp_password %}
+        <label class="check-field field-wide">
+          <input type="checkbox" name="clear_smtp_password">
+          <span>清除已保存的 SMTP 密码</span>
+        </label>
+        {% endif %}
+        <label class="field">
+          <span>发件人地址</span>
+          <input type="email" name="smtp_from" value="{{ values.smtp_from }}" placeholder="radar@example.edu.cn">
+        </label>
+        <label class="field">
+          <span>收件人地址</span>
+          <input name="smtp_to" value="{{ values.smtp_to }}" placeholder="you@example.edu.cn">
+        </label>
+        <label class="check-field">
+          <input type="checkbox" name="smtp_starttls" {% if values.smtp_starttls %}checked{% endif %}>
+          <span>使用 STARTTLS（常用端口 587）</span>
+        </label>
+        <label class="check-field">
+          <input type="checkbox" name="smtp_ssl" {% if values.smtp_ssl %}checked{% endif %}>
+          <span>使用 SSL（常用端口 465）</span>
+        </label>
+      </div>
+    </section>
+
+    <section class="settings-section">
+      <div class="settings-section-head">
+        <div>
+          <h2>管理员密码</h2>
+          <p>留空表示保持当前密码。修改后请使用新密码重新登录。</p>
+        </div>
+      </div>
+      <div class="form-grid">
+        <label class="field">
+          <span>新密码</span>
+          <input type="password" name="new_password" minlength="10" autocomplete="new-password">
+        </label>
+        <label class="field">
+          <span>确认新密码</span>
+          <input type="password" name="confirm_password" minlength="10" autocomplete="new-password">
+        </label>
+      </div>
+    </section>
+
+    <div class="settings-actions">
+      <button class="button button-primary" type="submit">保存设置</button>
+      <a class="button button-secondary" href="/">返回论文列表</a>
+    </div>
+  </form>
+</main>
+{% endblock %}
